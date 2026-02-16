@@ -156,7 +156,7 @@ const SyncedLyricsPage = react.memo(({ lyrics = [], provider, copyright, isKara 
 				let ref;
 
 				const isFocused = activeElementIndex === i;
-				const isPlaying = startTime && endTime && position >= startTime && position <= endTime;
+				const isPlaying = startTime != null && endTime != null && position >= startTime && position <= endTime;
 				const isActive = isFocused || isPlaying;
 				if (isFocused) {
 					ref = activeLineEle;

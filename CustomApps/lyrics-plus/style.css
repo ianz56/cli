@@ -328,6 +328,11 @@ div.lyrics-tabBar-headerItemLink {
 	transition-timing-function: linear;
 }
 
+.lyrics-lyricsContainer-Karaoke-BackgroundLine {
+	opacity: 0.6;
+	font-size: 0.85em;
+}
+
 .lyrics-lyricsContainer-LyricsLine a {
 	background-color: transparent;
 	transition: background-color 0.25s cubic-bezier(0, 0, 0, 1);

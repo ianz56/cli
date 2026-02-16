@@ -324,6 +324,26 @@ div.lyrics-tabBar-headerItemLink {
 	transition-timing-function: linear;
 }
 
+/* RTL Karaoke - reverse gradient direction */
+.lyrics-lyricsContainer-Karaoke-Word.lyrics-lyricsContainer-Karaoke-WordRTL {
+	background-image: linear-gradient(
+		to left,
+		var(--lyrics-color-active),
+		var(--lyrics-color-active) 45%,
+		var(--lyrics-color-inactive) 55%,
+		var(--lyrics-color-inactive)
+	);
+	background-position: top right 100%;
+}
+
+.lyrics-lyricsContainer-Karaoke-WordRTL.lyrics-lyricsContainer-Karaoke-WordActive {
+	background-position: top right !important;
+}
+
+.lyrics-lyricsContainer-LyricsLine:hover .lyrics-lyricsContainer-Karaoke-WordRTL {
+	background-position: top right;
+}
+
 .lyrics-lyricsContainer-Karaoke-BackgroundLine {
 	opacity: 0.6;
 	font-size: 0.85em;

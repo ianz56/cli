@@ -56,18 +56,23 @@ const useTrackPosition = (callback) => {
 	}, [callbackRef]);
 };
 
-const KaraokeLine = ({ text, isActive, position, startTime }) => {
-	if (!isActive) {
+const isRTLText = (str) => /[\u0591-\u07FF\u200F\u202B\u202E\uFB1D-\uFDFD\uFE70-\uFEFC]/.test(str);
+
+const KaraokeLine = ({ text, isActive, position, startTime, endTime }) => {
+	if (endTime && position > endTime) {
 		return text.map(({ word }) => word).join("");
 	}
 
-	return text.map(({ word, time }) => {
+	const isRTL = isRTLText(text.map(({ word }) => word).join(""));
+
+	return text.map(({ word, time }, i) => {
 		const isWordActive = position >= startTime;
 		startTime += time;
 		return react.createElement(
 			"span",
 			{
-				className: `lyrics-lyricsContainer-Karaoke-Word${isWordActive ? " lyrics-lyricsContainer-Karaoke-WordActive" : ""}`,
+				key: i,
+				className: `lyrics-lyricsContainer-Karaoke-Word${isWordActive ? " lyrics-lyricsContainer-Karaoke-WordActive" : ""}${isRTL ? " lyrics-lyricsContainer-Karaoke-WordRTL" : ""}`,
 				style: {
 					"--word-duration": `${time}ms`,
 					// don't animate unless we have to

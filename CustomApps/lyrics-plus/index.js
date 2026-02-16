@@ -83,7 +83,7 @@ const CONFIG = {
 		},
 		apple: {
 			on: getConfig("lyrics-plus:provider:apple:on"),
-			desc: "Lyrics sourced from Apple Music via Paxsenix API. Supports sylable karaoke, synced, and unsynced lyrics. You can put your own <code>Paxsenix API key</code> to use this provider or leave blank to use the default API key. Go to <code>https://api.paxsenix.org</code> to get your personal API key.",
+			desc: "Lyrics sourced from Apple Music via Paxsenix API. Supports syllable karaoke, synced, and unsynced lyrics. You can put your own <code>Paxsenix API key</code> to use this provider or leave blank to use the default API key. Go to <code>https://api.paxsenix.org</code> to get your personal API key.",
 			token: localStorage.getItem("lyrics-plus:provider:apple:token") || "",
 			modes: [KARAOKE, SYNCED, UNSYNCED],
 		},

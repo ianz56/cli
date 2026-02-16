@@ -49,6 +49,11 @@ const ProviderApple = (() => {
 				match = data.results[0];
 			}
 
+			if (!match.trackId) {
+				console.log("[ProviderApple] No trackId in iTunes result");
+				return null;
+			}
+
 			return {
 				songName: match.trackName,
 				artistName: match.artistName,

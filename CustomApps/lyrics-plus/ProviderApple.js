@@ -106,7 +106,7 @@ const ProviderApple = (() => {
 		const synced = [];
 		const unsynced = [];
 
-		if (!lyricsJson || !lyricsJson.content) return { karaoke, synced };
+		if (!lyricsJson || !lyricsJson.content) return { karaoke, synced, unsynced };
 
 		function processWords(rawWords, lineStartTime, isBackground) {
 			const processed = [];

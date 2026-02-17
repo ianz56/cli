@@ -59,7 +59,7 @@ const useTrackPosition = (callback) => {
 const isRTLText = (str) => /[\u0591-\u07FF\u200F\u202B\u202E\uFB1D-\uFDFD\uFE70-\uFEFC]/.test(str);
 
 const KaraokeLine = ({ text, isActive, position, startTime, endTime }) => {
-	if ((!isActive && position > startTime) || (endTime && position > endTime)) {
+	if ((!isActive && position > startTime) || (endTime != null && position > endTime)) {
 		return text.map(({ word }) => word).join("");
 	}
 
@@ -217,7 +217,24 @@ const SyncedLyricsPage = react.memo(({ lyrics = [], provider, copyright, isKara 
 									.catch(() => Spicetify.showNotification("Failed to copy lyrics to clipboard"));
 							},
 						},
-						!isKara ? lineText : react.createElement(KaraokeLine, { text, startTime, endTime, position, isActive })
+						!isKara ? lineText : react.createElement(KaraokeLine, { text, startTime, endTime, position, isActive }),
+						background &&
+							background.length > 0 &&
+							react.createElement(
+								"div",
+								{
+									className: "lyrics-lyricsContainer-Karaoke-BackgroundLine",
+								},
+								!isKara
+									? background.map((w) => w.word).join("")
+									: react.createElement(KaraokeLine, {
+											text: background,
+											startTime,
+											endTime,
+											position,
+											isActive,
+										})
+							)
 					),
 					belowMode &&
 						react.createElement(
@@ -459,8 +476,8 @@ const SyncedExpandedLyricsPage = react.memo(({ lyrics, provider, copyright, isKa
 			}
 
 			const isFocused = i === activeLineIndex;
-			const isPlaying = startTime && endTime && position >= startTime && position <= endTime;
-			const isPast = (endTime && position > endTime) || (!isFocused && startTime && position > startTime);
+			const isPlaying = startTime != null && endTime != null && position >= startTime && position <= endTime;
+			const isPast = (endTime != null && position > endTime) || (!isFocused && startTime != null && position > startTime);
 			const isActive = isFocused || isPlaying;
 			const showTranslatedBelow = CONFIG.visual["translate:display-mode"] === "below";
 			// If we have original text and we are showing translated below, we should show the original text
@@ -499,7 +516,24 @@ const SyncedExpandedLyricsPage = react.memo(({ lyrics, provider, copyright, isKa
 								.catch(() => Spicetify.showNotification("Failed to copy lyrics to clipboard"));
 						},
 					},
-					!isKara ? lineText : react.createElement(KaraokeLine, { text, startTime, endTime, position, isActive })
+					!isKara ? lineText : react.createElement(KaraokeLine, { text, startTime, endTime, position, isActive }),
+					background &&
+						background.length > 0 &&
+						react.createElement(
+							"div",
+							{
+								className: "lyrics-lyricsContainer-Karaoke-BackgroundLine",
+							},
+							!isKara
+								? background.map((w) => w.word).join("")
+								: react.createElement(KaraokeLine, {
+										text: background,
+										startTime,
+										endTime,
+										position,
+										isActive,
+									})
+						)
 				),
 				belowMode &&
 					react.createElement(
@@ -599,7 +633,7 @@ const noteContainer = document.createElement("div");
 noteContainer.classList.add("lyrics-Genius-noteContainer");
 const noteDivider = document.createElement("div");
 noteDivider.classList.add("lyrics-Genius-divider");
-noteDivider.innerHTML = `<svg width="32" height="32" viewBox="0 0 13 4" fill="currentColor"><path d=\"M13 10L8 4.206 3 10z\"/></svg>`;
+noteDivider.innerHTML = `<svg width="32" height="32" viewBox="0 0 13 4" fill="currentColor"><path d="M13 10L8 4.206 3 10z"/></svg>`;
 noteDivider.style.setProperty("--link-left", 0);
 const noteTextContainer = document.createElement("div");
 noteTextContainer.classList.add("lyrics-Genius-noteTextContainer");

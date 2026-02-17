@@ -492,6 +492,7 @@ const SyncedExpandedLyricsPage = react.memo(({ lyrics, provider, copyright, isKa
 
 			const isFocused = i === activeLineIndex;
 			const isPlaying = startTime && endTime && position >= startTime && position <= endTime;
+			const isPast = endTime && position > endTime;
 			const isActive = isFocused || isPlaying;
 			const showTranslatedBelow = CONFIG.visual["translate:display-mode"] === "below";
 			// If we have original text and we are showing translated below, we should show the original text
@@ -507,7 +508,7 @@ const SyncedExpandedLyricsPage = react.memo(({ lyrics, provider, copyright, isKa
 			return react.createElement(
 				"div",
 				{
-					className: `lyrics-lyricsContainer-LyricsLine${isActive ? " lyrics-lyricsContainer-LyricsLine-active" : ""}`,
+					className: `lyrics-lyricsContainer-LyricsLine${isActive ? " lyrics-lyricsContainer-LyricsLine-active" : ""}${isPast ? " lyrics-lyricsContainer-LyricsLine-past" : ""}`,
 					key: i,
 					style: {
 						cursor: "pointer",

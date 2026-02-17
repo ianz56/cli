@@ -256,6 +256,11 @@ const ProviderApple = (() => {
 			result.synced = synced.length > 0 ? synced : null;
 			result.unsynced = unsynced && unsynced.length > 0 ? unsynced : result.synced;
 
+			// Extract songwriters from metadata into copyright
+			if (lyricsData.metadata && Array.isArray(lyricsData.metadata.songwriters) && lyricsData.metadata.songwriters.length > 0) {
+				result.copyright = `Writer(s): ${lyricsData.metadata.songwriters.join(", ")}`;
+			}
+
 			return result;
 		} catch (e) {
 			console.error("[ProviderApple] Error:", e);

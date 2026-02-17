@@ -493,7 +493,7 @@ const SyncedExpandedLyricsPage = react.memo(({ lyrics, provider, copyright, isKa
 
 			const isFocused = i === activeLineIndex;
 			const isPlaying = startTime && endTime && position >= startTime && position <= endTime;
-			const isPast = endTime && position > endTime;
+			const isPast = (endTime && position > endTime) || (!isFocused && startTime && position > startTime);
 			const isActive = isFocused || isPlaying;
 			const showTranslatedBelow = CONFIG.visual["translate:display-mode"] === "below";
 			// If we have original text and we are showing translated below, we should show the original text

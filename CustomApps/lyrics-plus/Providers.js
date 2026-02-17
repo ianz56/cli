@@ -247,6 +247,7 @@ const Providers = {
 		result.karaoke = list.karaoke;
 		result.synced = list.synced;
 		result.unsynced = list.unsynced;
+		result.copyright = list.copyright;
 
 		return result;
 	},

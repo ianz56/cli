@@ -182,6 +182,13 @@
 	pointer-events: none;
 }
 
+.lyrics-lyricsContainer-SyncedLyrics .lyrics-lyricsContainer-LyricsLine.lyrics-lyricsContainer-LyricsLine-past,
+.lyrics-lyricsContainer-UnsyncedLyricsPage .lyrics-lyricsContainer-LyricsLine.lyrics-lyricsContainer-LyricsLine-past {
+	color: var(--lyrics-color-active);
+	opacity: 1;
+	filter: none !important;
+}
+
 .lyrics-lyricsContainer-LyricsLine,
 .lyrics-versionSelector {
 	margin-left: 100px;

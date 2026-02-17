@@ -58,8 +58,16 @@ const useTrackPosition = (callback) => {
 
 const isRTLText = (str) => /[\u0591-\u07FF\u200F\u202B\u202E\uFB1D-\uFDFD\uFE70-\uFEFC]/.test(str);
 
+const renderPerformer = (performer, previousPerformer, compact) => {
+	if (!CONFIG.visual["show-performers"] || !performer) return null;
+	if (!compact) {
+		if (previousPerformer === performer) return null;
+	}
+	return react.createElement("span", { className: "lyrics-lyricsContainer-Performer" }, performer);
+};
+
 const KaraokeLine = ({ text, isActive, position, startTime, endTime }) => {
-	if ((!isActive && position > startTime) || (endTime && position > endTime)) {
+	if ((!isActive && position > startTime) || (endTime != null && position > endTime)) {
 		return text.map(({ word }) => word).join("");
 	}
 
@@ -217,22 +225,7 @@ const SyncedLyricsPage = react.memo(({ lyrics = [], provider, copyright, isKara 
 									.catch(() => Spicetify.showNotification("Failed to copy lyrics to clipboard"));
 							},
 						},
-						(() => {
-							if (!CONFIG.visual["show-performers"] || !performer) return null;
-
-							if (!CONFIG.visual["synced-compact"]) {
-								const previousLine = lyricWithEmptyLines[lineNumber - 1];
-								if (previousLine && previousLine.performer === performer) return null;
-							}
-
-							return react.createElement(
-								"span",
-								{
-									className: "lyrics-lyricsContainer-Performer",
-								},
-								performer
-							);
-						})(),
+						renderPerformer(performer, lyricWithEmptyLines[lineNumber - 1]?.performer, CONFIG.visual["synced-compact"]),
 						!isKara ? lineText : react.createElement(KaraokeLine, { text, startTime, endTime, position, isActive }),
 						background &&
 							background.length > 0 &&
@@ -492,8 +485,8 @@ const SyncedExpandedLyricsPage = react.memo(({ lyrics, provider, copyright, isKa
 			}
 
 			const isFocused = i === activeLineIndex;
-			const isPlaying = startTime && endTime && position >= startTime && position <= endTime;
-			const isPast = (endTime && position > endTime) || (!isFocused && startTime && position > startTime);
+			const isPlaying = startTime != null && endTime != null && position >= startTime && position <= endTime;
+			const isPast = (endTime != null && position > endTime) || (!isFocused && startTime != null && position > startTime);
 			const isActive = isFocused || isPlaying;
 			const showTranslatedBelow = CONFIG.visual["translate:display-mode"] === "below";
 			// If we have original text and we are showing translated below, we should show the original text
@@ -532,22 +525,7 @@ const SyncedExpandedLyricsPage = react.memo(({ lyrics, provider, copyright, isKa
 								.catch(() => Spicetify.showNotification("Failed to copy lyrics to clipboard"));
 						},
 					},
-					(() => {
-						if (!CONFIG.visual["show-performers"] || !performer) return null;
-
-						if (!CONFIG.visual["synced-compact"]) {
-							const previousLine = padded[i - 1];
-							if (previousLine && previousLine.performer === performer) return null;
-						}
-
-						return react.createElement(
-							"span",
-							{
-								className: "lyrics-lyricsContainer-Performer",
-							},
-							performer
-						);
-					})(),
+					renderPerformer(performer, padded[i - 1]?.performer, CONFIG.visual["synced-compact"]),
 					!isKara ? lineText : react.createElement(KaraokeLine, { text, startTime, endTime, position, isActive }),
 					background &&
 						background.length > 0 &&
@@ -632,20 +610,7 @@ const UnsyncedLyricsPage = react.memo(({ lyrics, provider, copyright }) => {
 								.catch(() => Spicetify.showNotification("Failed to copy lyrics to clipboard"));
 						},
 					},
-					(() => {
-						if (!CONFIG.visual["show-performers"] || !performer) return null;
-
-						const previousLine = lyrics[index - 1];
-						if (previousLine && previousLine.performer === performer) return null;
-
-						return react.createElement(
-							"span",
-							{
-								className: "lyrics-lyricsContainer-Performer",
-							},
-							performer
-						);
-					})(),
+					renderPerformer(performer, lyrics[index - 1]?.performer, false),
 					lineText
 				),
 				belowMode &&

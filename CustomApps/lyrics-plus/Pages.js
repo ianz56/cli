@@ -56,22 +56,36 @@ const useTrackPosition = (callback) => {
 	}, [callbackRef]);
 };
 
-const KaraokeLine = ({ text, isActive, position, startTime }) => {
-	if (!isActive) {
+const isRTLText = (str) => /[\u0591-\u07FF\u200F\u202B\u202E\uFB1D-\uFDFD\uFE70-\uFEFC]/.test(str);
+
+const renderPerformer = (performer, previousPerformer, compact) => {
+	if (!CONFIG.visual["show-performers"] || !performer) return null;
+	if (!compact) {
+		if (previousPerformer === performer) return null;
+	}
+	return react.createElement("span", { className: "lyrics-lyricsContainer-Performer" }, performer);
+};
+
+const KaraokeLine = ({ text, isActive, position, startTime, endTime }) => {
+	if ((!isActive && position > startTime) || (endTime != null && position > endTime)) {
 		return text.map(({ word }) => word).join("");
 	}
 
-	return text.map(({ word, time }) => {
+	const isRTL = isRTLText(text.map(({ word }) => word).join(""));
+
+	return text.map(({ word, time }, i) => {
 		const isWordActive = position >= startTime;
 		startTime += time;
+		const isWordComplete = isWordActive && position >= startTime;
 		return react.createElement(
 			"span",
 			{
-				className: `lyrics-lyricsContainer-Karaoke-Word${isWordActive ? " lyrics-lyricsContainer-Karaoke-WordActive" : ""}`,
+				key: i,
+				className: `lyrics-lyricsContainer-Karaoke-Word${isWordActive ? " lyrics-lyricsContainer-Karaoke-WordActive" : ""}${isRTL ? " lyrics-lyricsContainer-Karaoke-WordRTL" : ""}`,
 				style: {
 					"--word-duration": `${time}ms`,
 					// don't animate unless we have to
-					transition: !isWordActive ? "all 0s linear" : "",
+					transition: !isWordActive || isWordComplete ? "all 0s linear" : "",
 				},
 			},
 			word
@@ -138,7 +152,7 @@ const SyncedLyricsPage = react.memo(({ lyrics = [], provider, copyright, isKara 
 				},
 				key: lyricsId,
 			},
-			activeLines.map(({ text, lineNumber, startTime, originalText }, i) => {
+			activeLines.map(({ text, lineNumber, startTime, endTime, originalText, performer, background }, i) => {
 				if (i === 1 && activeLineIndex === 1) {
 					return react.createElement(IdlingIndicator, {
 						progress: position / activeLines[2].startTime,
@@ -150,10 +164,14 @@ const SyncedLyricsPage = react.memo(({ lyrics = [], provider, copyright, isKara 
 				const activeElementIndex = Math.min(activeLineIndex, CONFIG.visual["lines-before"] + 1);
 				let ref;
 
-				const isActive = activeElementIndex === i;
+				const isFocused = activeElementIndex === i;
+				const isPlaying = startTime != null && endTime != null && position >= startTime && position <= endTime;
+				const isActive = isFocused || isPlaying;
+				if (isFocused) {
+					ref = activeLineEle;
+				}
 				if (isActive) {
 					className += " lyrics-lyricsContainer-LyricsLine-active";
-					ref = activeLineEle;
 				}
 
 				let animationIndex;
@@ -207,7 +225,25 @@ const SyncedLyricsPage = react.memo(({ lyrics = [], provider, copyright, isKara 
 									.catch(() => Spicetify.showNotification("Failed to copy lyrics to clipboard"));
 							},
 						},
-						!isKara ? lineText : react.createElement(KaraokeLine, { text, startTime, position, isActive })
+						renderPerformer(performer, lyricWithEmptyLines[lineNumber - 1]?.performer, CONFIG.visual["synced-compact"]),
+						!isKara ? lineText : react.createElement(KaraokeLine, { text, startTime, endTime, position, isActive }),
+						background &&
+							background.length > 0 &&
+							react.createElement(
+								"div",
+								{
+									className: "lyrics-lyricsContainer-Karaoke-BackgroundLine",
+								},
+								!isKara
+									? background.map((w) => w.word).join("")
+									: react.createElement(KaraokeLine, {
+											text: background,
+											startTime,
+											endTime,
+											position,
+											isActive,
+										})
+							)
 					),
 					belowMode &&
 						react.createElement(
@@ -439,7 +475,7 @@ const SyncedExpandedLyricsPage = react.memo(({ lyrics, provider, copyright, isKa
 		react.createElement("p", {
 			className: "lyrics-lyricsContainer-LyricsUnsyncedPadding",
 		}),
-		padded.map(({ text, startTime, originalText }, i) => {
+		padded.map(({ text, startTime, endTime, originalText, performer, background }, i) => {
 			if (i === 0) {
 				return react.createElement(IdlingIndicator, {
 					isActive: activeLineIndex === 0,
@@ -448,7 +484,10 @@ const SyncedExpandedLyricsPage = react.memo(({ lyrics, provider, copyright, isKa
 				});
 			}
 
-			const isActive = i === activeLineIndex;
+			const isFocused = i === activeLineIndex;
+			const isPlaying = startTime != null && endTime != null && position >= startTime && position <= endTime;
+			const isPast = (endTime != null && position > endTime) || (!isFocused && startTime != null && position > startTime);
+			const isActive = isFocused || isPlaying;
 			const showTranslatedBelow = CONFIG.visual["translate:display-mode"] === "below";
 			// If we have original text and we are showing translated below, we should show the original text
 			// Otherwise we should show the translated text
@@ -463,13 +502,13 @@ const SyncedExpandedLyricsPage = react.memo(({ lyrics, provider, copyright, isKa
 			return react.createElement(
 				"div",
 				{
-					className: `lyrics-lyricsContainer-LyricsLine${i <= activeLineIndex ? " lyrics-lyricsContainer-LyricsLine-active" : ""}`,
+					className: `lyrics-lyricsContainer-LyricsLine${isActive ? " lyrics-lyricsContainer-LyricsLine-active" : ""}${isPast ? " lyrics-lyricsContainer-LyricsLine-past" : ""}`,
 					key: i,
 					style: {
 						cursor: "pointer",
 					},
 					dir: "auto",
-					ref: isActive ? activeLineRef : null,
+					ref: isFocused ? activeLineRef : null,
 					onClick: (event) => {
 						if (startTime) {
 							Spicetify.Player.seek(startTime);
@@ -486,7 +525,25 @@ const SyncedExpandedLyricsPage = react.memo(({ lyrics, provider, copyright, isKa
 								.catch(() => Spicetify.showNotification("Failed to copy lyrics to clipboard"));
 						},
 					},
-					!isKara ? lineText : react.createElement(KaraokeLine, { text, startTime, position, isActive })
+					renderPerformer(performer, padded[i - 1]?.performer, CONFIG.visual["synced-compact"]),
+					!isKara ? lineText : react.createElement(KaraokeLine, { text, startTime, endTime, position, isActive }),
+					background &&
+						background.length > 0 &&
+						react.createElement(
+							"div",
+							{
+								className: "lyrics-lyricsContainer-Karaoke-BackgroundLine",
+							},
+							!isKara
+								? background.map((w) => w.word).join("")
+								: react.createElement(KaraokeLine, {
+										text: background,
+										startTime,
+										endTime,
+										position,
+										isActive,
+									})
+						)
 				),
 				belowMode &&
 					react.createElement(
@@ -524,7 +581,7 @@ const UnsyncedLyricsPage = react.memo(({ lyrics, provider, copyright }) => {
 		react.createElement("p", {
 			className: "lyrics-lyricsContainer-LyricsUnsyncedPadding",
 		}),
-		lyrics.map(({ text, originalText }, index) => {
+		lyrics.map(({ text, originalText, performer }, index) => {
 			const showTranslatedBelow = CONFIG.visual["translate:display-mode"] === "below";
 			// If we have original text and we are showing translated below, we should show the original text
 			// Otherwise we should show the translated text
@@ -553,6 +610,7 @@ const UnsyncedLyricsPage = react.memo(({ lyrics, provider, copyright }) => {
 								.catch(() => Spicetify.showNotification("Failed to copy lyrics to clipboard"));
 						},
 					},
+					renderPerformer(performer, lyrics[index - 1]?.performer, false),
 					lineText
 				),
 				belowMode &&

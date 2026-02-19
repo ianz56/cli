@@ -132,12 +132,20 @@ const Utils = {
 
 		return ((simpPercentage - tradPercentage + 1) / 2) * 100 >= CONFIG.visual["hans-detect-threshold"] ? "zh-hans" : "zh-hant";
 	},
-	processTranslatedLyrics(translated, original) {
-		return original.map((lyric, index) => ({
-			startTime: lyric.startTime || 0,
-			text: this.rubyTextToReact(translated[index]),
-			originalText: lyric.text,
-		}));
+	processTranslatedLyrics(translated, original, bgResult) {
+		return original.map((lyric, index) => {
+			const line = {
+				...lyric,
+				text: this.rubyTextToReact(translated[index]),
+				originalText: lyric.text,
+			};
+			// If background was converted, replace with converted text
+			if (bgResult?.[index]) {
+				const convertedBgText = typeof bgResult[index] === "string" ? bgResult[index] : this.rubyTextToReact(bgResult[index]);
+				line.background = [{ word: convertedBgText, time: 0, isBackground: true }];
+			}
+			return line;
+		});
 	},
 	/** It seems that this function is not being used, but I'll keep it just in case it’s needed in the future.*/
 	processTranslatedOriginalLyrics(lyrics, synced) {

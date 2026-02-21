@@ -169,7 +169,8 @@ const ProviderIanz56 = (() => {
 				const end = word.end;
 
 				// Gap before word
-				if (begin > currentTime + 0.01) { // 10ms tolerance
+				if (begin > currentTime + 0.01) {
+					// 10ms tolerance
 					processed.push({
 						word: "",
 						time: Math.round((begin - currentTime) * 1000),
@@ -181,7 +182,7 @@ const ProviderIanz56 = (() => {
 				let wordText = word.text;
 				// Sanitize background vocal parens
 				if (isBackground) {
-					wordText = wordText.replace(/^[\(]+|[\)]+$/g, "");
+					wordText = wordText.replace(/^[(]+|[)]+$/g, "");
 				}
 
 				if (word.hasSpaceAfter && i < words.length - 1) {
@@ -217,7 +218,7 @@ const ProviderIanz56 = (() => {
 			// Process background vocals
 			let backgroundWords = [];
 			let backgroundStartTime = 0;
-			if (line.backgroundVocal && line.backgroundVocal.words) {
+			if (line.backgroundVocal?.words) {
 				const bgWords = line.backgroundVocal.words;
 				if (bgWords.length > 0) {
 					backgroundStartTime = bgWords[0].begin * 1000; // in ms
@@ -225,11 +226,11 @@ const ProviderIanz56 = (() => {
 				}
 			}
 
-			const isMainBackground = (line.words || []).length > 0 && (line.words || []).every(w => w.isBackground);
+			const isMainBackground = (line.words || []).length > 0 && (line.words || []).every((w) => w.isBackground);
 
 			// Calculate the effective end time (max of main line end and background vocal end)
 			let lineEndTime = line.end;
-			if (line.backgroundVocal && line.backgroundVocal.words && line.backgroundVocal.words.length > 0) {
+			if (line.backgroundVocal?.words && line.backgroundVocal.words.length > 0) {
 				const bgWords = line.backgroundVocal.words;
 				const bgEndTime = bgWords[bgWords.length - 1].end;
 				lineEndTime = Math.max(lineEndTime, bgEndTime);
@@ -242,15 +243,15 @@ const ProviderIanz56 = (() => {
 				isBackground: isMainBackground,
 				// Separate background vocal track
 				background: backgroundWords.length > 0 ? backgroundWords : undefined,
-				originalText: line.translation || ""
+				originalText: line.translation || "",
 			});
 
 			synced.push({
 				startTime: Math.round(lineStartTime * 1000),
 				endTime: Math.round(lineEndTime * 1000),
 				text: line.translation || line.text || "",
-				originalText: line.translation ? (line.text || "") : "",
-				background: backgroundWords
+				originalText: line.translation ? line.text || "" : "",
+				background: backgroundWords,
 			});
 		});
 
@@ -280,7 +281,7 @@ const ProviderIanz56 = (() => {
 		try {
 			const index = await fetchIndex();
 			const match = findMatch(info.artist, info.title, index);
-			
+
 			if (!match) {
 				console.log("[ianz56] No match found");
 				throw new Error("No matching lyrics found");
@@ -296,7 +297,7 @@ const ProviderIanz56 = (() => {
 			result.karaoke = karaoke.length > 0 ? karaoke : null;
 			result.synced = synced.length > 0 ? synced : null;
 			result.unsynced = result.synced; // Unsynced fallback to synced as no raw unsynced provided usually by format
-			
+
 			return result;
 		} catch (e) {
 			console.error("[ianz56] Error:", e);

@@ -173,7 +173,7 @@ const ProviderMusixmatch = (() => {
 			const lineText = getTextCallback(line) || "♪";
 			let normalizedLine = normalizeForMatch(lineText);
 
-			let matchedPerformers = [];
+			const matchedPerformers = [];
 
 			while (queueCursor < snippetQueue.length) {
 				let matchFoundAtOffset = -1;
@@ -436,7 +436,7 @@ const ProviderMusixmatch = (() => {
 				.join("&");
 
 		try {
-			let body = await Spicetify.CosmosAsync.get(finalURL, null, headers);
+			const body = await Spicetify.CosmosAsync.get(finalURL, null, headers);
 			if (body?.message?.body?.language_list) {
 				languageMap = {};
 				body.message.body.language_list.forEach((item) => {

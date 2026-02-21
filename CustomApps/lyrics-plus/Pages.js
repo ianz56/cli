@@ -644,7 +644,7 @@ const noteContainer = document.createElement("div");
 noteContainer.classList.add("lyrics-Genius-noteContainer");
 const noteDivider = document.createElement("div");
 noteDivider.classList.add("lyrics-Genius-divider");
-noteDivider.innerHTML = `<svg width="32" height="32" viewBox="0 0 13 4" fill="currentColor"><path d=\"M13 10L8 4.206 3 10z\"/></svg>`;
+noteDivider.innerHTML = `<svg width="32" height="32" viewBox="0 0 13 4" fill="currentColor"><path d="M13 10L8 4.206 3 10z"/></svg>`;
 noteDivider.style.setProperty("--link-left", 0);
 const noteTextContainer = document.createElement("div");
 noteTextContainer.classList.add("lyrics-Genius-noteTextContainer");

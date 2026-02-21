@@ -1,6 +1,5 @@
 const ProviderIanz56 = (() => {
 	const BASE_URL = "https://raw.githubusercontent.com/ianz56/lyrics-ttml/main/";
-	const INDEX_URL = BASE_URL + "index.json?t=" + Date.now();
 
 	let indexCache = null;
 	let lastIndexFetch = 0;
@@ -28,24 +27,25 @@ const ProviderIanz56 = (() => {
 	 */
 	async function fetchIndex() {
 		const now = Date.now();
+		const indexUrl = BASE_URL + "index.json?t=" + now;
 		if (indexCache && now - lastIndexFetch < CACHE_DURATION) {
 			return indexCache;
 		}
 
 		try {
 			// Try using Spicetify's CosmosAsync for CORS handling
-			const response = await Spicetify.CosmosAsync.get(INDEX_URL);
+			const response = await Spicetify.CosmosAsync.get(indexUrl);
 			if (response) {
 				indexCache = response;
 				lastIndexFetch = now;
 				return indexCache;
 			}
 		} catch (e) {
-			console.log("[ianz56] CosmosAsync failed, trying fetch:", e);
+			console.warn("[ianz56] CosmosAsync failed, trying fetch:", e);
 		}
 
 		// Fallback to regular fetch
-		const response = await fetch(INDEX_URL);
+		const response = await fetch(indexUrl);
 		if (!response.ok) {
 			throw new Error(`Failed to fetch index: ${response.status}`);
 		}
@@ -116,7 +116,8 @@ const ProviderIanz56 = (() => {
 		// jsonPath is like "./JSON/IND/Artist - Title.json"
 		// Remove leading "./" and construct full URL
 		const path = jsonPath.replace(/^\.\//, "");
-		const url = BASE_URL + encodeURI(path);
+		const encodedPath = path.split("/").map(encodeURIComponent).join("/");
+		const url = BASE_URL + encodedPath;
 
 		console.log("[ianz56] Fetching JSON lyrics from:", url);
 
@@ -127,7 +128,7 @@ const ProviderIanz56 = (() => {
 				return response;
 			}
 		} catch (e) {
-			console.log("[ianz56] CosmosAsync failed, trying fetch:", e);
+			console.warn("[ianz56] CosmosAsync failed, trying fetch:", e);
 		}
 
 		// Fallback to regular fetch
@@ -218,11 +219,13 @@ const ProviderIanz56 = (() => {
 			// Process background vocals
 			let backgroundWords = [];
 			let backgroundStartTime = 0;
+			let backgroundEndTime = 0;
 			if (line.backgroundVocal?.words) {
 				const bgWords = line.backgroundVocal.words;
 				if (bgWords.length > 0) {
 					backgroundStartTime = bgWords[0].begin * 1000; // in ms
-					backgroundWords = processWords(bgWords, lineStartTime, true);
+					backgroundEndTime = bgWords[bgWords.length - 1].end * 1000;
+					backgroundWords = processWords(bgWords, bgWords[0].begin, true);
 				}
 			}
 
@@ -239,6 +242,8 @@ const ProviderIanz56 = (() => {
 			karaoke.push({
 				startTime: Math.round(lineStartTime * 1000),
 				endTime: Math.round(lineEndTime * 1000),
+				backgroundStartTime: backgroundStartTime || undefined,
+				backgroundEndTime: backgroundEndTime || undefined,
 				text: mainWords,
 				isBackground: isMainBackground,
 				// Separate background vocal track
@@ -251,7 +256,7 @@ const ProviderIanz56 = (() => {
 				endTime: Math.round(lineEndTime * 1000),
 				text: line.translation || line.text || "",
 				originalText: line.translation ? line.text || "" : "",
-				background: backgroundWords,
+				background: backgroundWords.length ? backgroundWords : undefined,
 			});
 		});
 

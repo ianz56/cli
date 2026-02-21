@@ -4,6 +4,8 @@ const ProviderMusixmatch = (() => {
 		cookie: "x-mxm-token-guid=",
 	};
 
+	const normalizeForMatch = (text) => text.replace(/\s+/g, "").toLowerCase();
+
 	function findTranslationStatus(body) {
 		if (!body || typeof body !== "object") {
 			return null;
@@ -98,12 +100,12 @@ const ProviderMusixmatch = (() => {
 
 		const tagging = meta.track.performer_tagging;
 		const miscTags = meta.track.performer_tagging_misc_tags || {};
-		let performerMap = [];
+		let performerEntries = [];
 		if (tagging && tagging.content && tagging.content.length > 0) {
 			const resources = tagging.resources?.artists || [];
 			const resourcesList = Array.isArray(resources) ? resources : Object.values(resources);
 
-			performerMap = tagging.content
+			performerEntries = tagging.content
 				.map((c) => {
 					if (!c.performers || c.performers.length === 0) return null;
 
@@ -112,7 +114,7 @@ const ProviderMusixmatch = (() => {
 							let name = "Unknown";
 							if (p.type === "artist") {
 								const fqid = p.fqid;
-								const idFromFqid = fqid ? parseInt(fqid.split(":")[2]) : null;
+								const idFromFqid = fqid ? parseInt(fqid.split(":")[2], 10) : null;
 
 								const artist = resourcesList.find((r) => r.artist_id === idFromFqid);
 								if (artist) name = artist.artist_name;
@@ -121,7 +123,7 @@ const ProviderMusixmatch = (() => {
 							}
 							return {
 								fqid: p.fqid,
-								artist_id: p.fqid ? parseInt(p.fqid.split(":")[2]) : null,
+								artist_id: p.fqid ? parseInt(p.fqid.split(":")[2], 10) : null,
 								name: name,
 							};
 						})
@@ -139,18 +141,16 @@ const ProviderMusixmatch = (() => {
 				.filter(Boolean);
 		}
 
-		const normalizeForMatch = (text) => text.replace(/\s+/g, "").toLowerCase();
-
 		const snippetQueue = [];
-		if (performerMap.length > 0) {
-			for (const tag of performerMap) {
+		if (performerEntries.length > 0) {
+			for (const tag of performerEntries) {
 				if (!tag.snippet) continue;
 				const snippetLines = tag.snippet
 					.split(/\n+/)
 					.map((s) => s.trim())
 					.filter(Boolean);
 				for (const sLine of snippetLines) {
-					if (sLine.length < 2 && !/^[\u3131-\uD79D]/.test(sLine)) continue;
+					if (sLine.length < 2 && !/^[\u3131-\uD79D\u4E00-\u9FFF\u3040-\u30FF]/.test(sLine)) continue;
 					snippetQueue.push({
 						text: normalizeForMatch(sLine),
 						raw: sLine,
@@ -165,7 +165,6 @@ const ProviderMusixmatch = (() => {
 	function matchSequential(lyricsLines, snippetQueue, getTextCallback = (l) => l.text) {
 		if (!snippetQueue || snippetQueue.length === 0) return lyricsLines;
 
-		const normalizeForMatch = (text) => text.replace(/\s+/g, "").toLowerCase();
 		let queueCursor = 0;
 		const LOOKAHEAD = 5;
 

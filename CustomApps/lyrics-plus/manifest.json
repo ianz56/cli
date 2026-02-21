@@ -73,6 +73,7 @@
 		"ProviderMusixmatch.js",
 		"ProviderGenius.js",
 		"ProviderLRCLIB.js",
+		"ProviderIanz56.js",
 		"Providers.js",
 		"Pages.js",
 		"OptionsMenu.js",

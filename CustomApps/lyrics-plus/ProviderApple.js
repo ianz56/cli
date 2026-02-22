@@ -281,14 +281,14 @@ const ProviderApple = (() => {
 
 			const { karaoke, synced, unsynced } = parsed;
 
-			if (karaoke.length === 0 && synced.length === 0 && (!unsynced || unsynced.length === 0)) {
+			if (karaoke.length === 0 && synced.length === 0 && unsynced.length === 0) {
 				result.error = "Empty lyrics";
 				return result;
 			}
 
 			result.karaoke = karaoke.length > 0 ? karaoke : null;
 			result.synced = synced.length > 0 ? synced : null;
-			result.unsynced = unsynced && unsynced.length > 0 ? unsynced : result.synced ? result.synced.map((item) => ({ text: item.text })) : null;
+			result.unsynced = unsynced.length > 0 ? unsynced : result.synced ? result.synced.map((item) => ({ text: item.text })) : null;
 
 			// Extract songwriters from metadata into copyright
 			if (lyricsData.metadata && Array.isArray(lyricsData.metadata.songwriters) && lyricsData.metadata.songwriters.length > 0) {

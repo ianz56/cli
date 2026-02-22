@@ -8,8 +8,9 @@ const ProviderApple = (() => {
 	 * @returns {Promise<Object|null>}
 	 */
 	async function getSongInfo(query) {
-		const searchTerm = `${query.artistName} ${query.songName}`;
-		if (!searchTerm.trim()) return null;
+		if (!query.songName?.trim() && !query.artistName?.trim()) return null;
+		const searchTerm = `${query.artistName ?? ""} ${query.songName ?? ""}`.trim();
+		if (!searchTerm) return null;
 
 		const url = `${SEARCH_BASE_URL}?` + `term=${encodeURIComponent(searchTerm)}&` + `entity=song&` + `limit=10`;
 
@@ -51,7 +52,7 @@ const ProviderApple = (() => {
 
 			// Try to find exact match first
 			let match = data.results.find(
-				(r) => r.trackName.toLowerCase().trim() === normalizedTitle && r.artistName.toLowerCase().includes(normalizedArtist)
+				(r) => r.trackName?.toLowerCase().trim() === normalizedTitle && r.artistName?.toLowerCase().includes(normalizedArtist)
 			);
 
 			// If no exact match, take first result
@@ -86,7 +87,7 @@ const ProviderApple = (() => {
 	 * @returns {Promise<Object|null>}
 	 */
 	async function getSyncedLyrics(id) {
-		const token = CONFIG.providers.apple.token;
+		const token = CONFIG?.providers?.apple?.token;
 		let url = `${LYRICS_BASE_URL}apple-music/lyrics?id=${id}`;
 		const headers = {};
 
@@ -147,6 +148,11 @@ const ProviderApple = (() => {
 				const wordStart = w.timestamp;
 				const wordEnd = w.endtime;
 				const wordDuration = w.duration;
+
+				// Skip words with missing timing to protect currentTime state
+				if (wordStart == null || wordEnd == null || wordDuration == null) {
+					return;
+				}
 				const text = w.text || "";
 
 				if (wordStart > currentTime + 10) {
@@ -189,15 +195,15 @@ const ProviderApple = (() => {
 			}
 
 			const mainTextStr = (line.text || [])
-				.map((w) => w.text + (!w.part ? " " : ""))
+				.map((w) => (w.text || "") + (!w.part ? " " : ""))
 				.join("")
 				.trim();
 			const bgTextStr = (line.backgroundText || [])
-				.map((w) => w.text + (!w.part ? " " : ""))
+				.map((w) => (w.text || "") + (!w.part ? " " : ""))
 				.join("")
 				.trim();
 
-			if (lyricsJson.type !== "None") {
+			if (lyricsJson.type && lyricsJson.type !== "None") {
 				karaoke.push({
 					startTime: lineStartTime,
 					endTime: lineEndTime,

@@ -134,9 +134,10 @@ const Utils = {
 	},
 	processTranslatedLyrics(translated, original, bgResult) {
 		return original.map((lyric, index) => {
+			const translatedText = translated[index];
 			const line = {
 				...lyric,
-				text: this.rubyTextToReact(translated[index]),
+				text: translatedText != null ? this.rubyTextToReact(translatedText) : lyric.text,
 				originalText: lyric.text,
 			};
 			// If background was converted, replace with converted text

@@ -24,7 +24,7 @@ const ProviderApple = (() => {
 
 		try {
 			const response = await fetch(url, { signal });
-			if (timerId !== undefined) clearTimeout(timerId);
+			clearTimeout(timerId);
 			if (!response.ok) {
 				console.error("[ProviderApple] iTunes search failed:", response.status);
 				return null;
@@ -72,12 +72,10 @@ const ProviderApple = (() => {
 				artworkUrl: match.artworkUrl100,
 			};
 		} catch (e) {
-			if (timerId !== undefined) clearTimeout(timerId);
-			if (e.name === "AbortError" || e.name === "TimeoutError") {
-				console.error("[ProviderApple] iTunes search timeout");
-			} else {
-				console.error("[ProviderApple] getSongInfo error:", e);
-			}
+			clearTimeout(timerId);
+			if (e.name === "AbortError" || e.name === "TimeoutError") console.error("[ProviderApple] iTunes search timeout");
+			else if (e.message === "Failed to fetch") console.warn("[ProviderApple] iTunes search failed to fetch");
+			else console.error("[ProviderApple] getSongInfo error:", e);
 			return null;
 		}
 	}
@@ -109,7 +107,7 @@ const ProviderApple = (() => {
 
 		try {
 			const fetchResponse = await fetch(url, { headers, signal });
-			if (timerId !== undefined) clearTimeout(timerId);
+			clearTimeout(timerId);
 			if (!fetchResponse.ok) return null;
 			const response = await fetchResponse.json();
 
@@ -126,12 +124,10 @@ const ProviderApple = (() => {
 			}
 			return response;
 		} catch (e) {
-			if (timerId !== undefined) clearTimeout(timerId);
-			if (e.name === "AbortError" || e.name === "TimeoutError") {
-				console.error("[ProviderApple] getSyncedLyrics timeout");
-			} else {
-				console.error("[ProviderApple] getSyncedLyrics error:", e);
-			}
+			clearTimeout(timerId);
+			if (e.name === "AbortError" || e.name === "TimeoutError") console.error("[ProviderApple] getSyncedLyrics timeout");
+			else if (e.message === "Failed to fetch") console.warn("[ProviderApple] getSyncedLyrics failed to fetch");
+			else console.error("[ProviderApple] getSyncedLyrics error:", e);
 			return null;
 		}
 	}

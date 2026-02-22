@@ -141,7 +141,7 @@ const Utils = {
 			};
 			// If background was converted, replace with converted text
 			if (bgResult?.[index]) {
-				const convertedBgText = typeof bgResult[index] === "string" ? bgResult[index] : this.rubyTextToReact(bgResult[index]);
+				const convertedBgText = typeof bgResult[index] === "string" ? this.rubyTextToReact(bgResult[index]) : bgResult[index];
 				line.background = [{ word: convertedBgText, time: 0, isBackground: true }];
 			}
 			return line;
@@ -221,7 +221,7 @@ const Utils = {
 			return text
 				.map((word) => {
 					wordTime += word.time;
-					return `${word.word}<${this.formatTime(wordTime)}>`;
+					return `${this.formatTextWithTimestamps(word.word)}<${this.formatTime(wordTime)}>`;
 				})
 				.join("");
 		}

@@ -60,10 +60,10 @@ const isRTLText = (str) => /[\u0591-\u07FF\u200F\u202B\u202E\uFB1D-\uFDFD\uFE70-
 
 const KaraokeLine = ({ text, isActive, position, startTime, endTime }) => {
 	if ((!isActive && position > startTime) || (endTime != null && position > endTime)) {
-		return text.map(({ word }) => word).join("");
+		return text.map(({ word }, i) => (typeof word === "string" ? word : react.cloneElement(word, { key: i })));
 	}
 
-	const isRTL = isRTLText(text.map(({ word }) => word).join(""));
+	const isRTL = isRTLText(text.map(({ word }) => (typeof word === "string" ? word : "")).join(""));
 
 	return text.map(({ word, time }, i) => {
 		const isWordActive = position >= startTime;
@@ -226,7 +226,7 @@ const SyncedLyricsPage = react.memo(({ lyrics = [], provider, copyright, isKara 
 									className: "lyrics-lyricsContainer-Karaoke-BackgroundLine",
 								},
 								!isKara
-									? background.map((w) => w.word).join("")
+									? background.map((w, i) => (typeof w.word === "string" ? w.word : react.cloneElement(w.word, { key: i })))
 									: react.createElement(KaraokeLine, {
 											text: background,
 											startTime,
@@ -525,7 +525,7 @@ const SyncedExpandedLyricsPage = react.memo(({ lyrics, provider, copyright, isKa
 								className: "lyrics-lyricsContainer-Karaoke-BackgroundLine",
 							},
 							!isKara
-								? background.map((w) => w.word).join("")
+								? background.map((w, i) => (typeof w.word === "string" ? w.word : react.cloneElement(w.word, { key: i })))
 								: react.createElement(KaraokeLine, {
 										text: background,
 										startTime,

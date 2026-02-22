@@ -13,8 +13,18 @@ const ProviderApple = (() => {
 
 		const url = `${SEARCH_BASE_URL}?` + `term=${encodeURIComponent(searchTerm)}&` + `entity=song&` + `limit=10`;
 
+		let signal, timerId;
+		if (AbortSignal.timeout) {
+			signal = AbortSignal.timeout(10000);
+		} else {
+			const controller = new AbortController();
+			timerId = setTimeout(() => controller.abort(), 10000);
+			signal = controller.signal;
+		}
+
 		try {
-			const response = await fetch(url);
+			const response = await fetch(url, { signal });
+			if (timerId !== undefined) clearTimeout(timerId);
 			if (!response.ok) {
 				console.error("[ProviderApple] iTunes search failed:", response.status);
 				return null;
@@ -62,7 +72,12 @@ const ProviderApple = (() => {
 				artworkUrl: match.artworkUrl100,
 			};
 		} catch (e) {
-			console.error("[ProviderApple] getSongInfo error:", e);
+			if (timerId !== undefined) clearTimeout(timerId);
+			if (e.name === "AbortError" || e.name === "TimeoutError") {
+				console.error("[ProviderApple] iTunes search timeout");
+			} else {
+				console.error("[ProviderApple] getSongInfo error:", e);
+			}
 			return null;
 		}
 	}
@@ -83,8 +98,18 @@ const ProviderApple = (() => {
 			headers["Content-Type"] = "application/json";
 		}
 
+		let signal, timerId;
+		if (AbortSignal.timeout) {
+			signal = AbortSignal.timeout(10000);
+		} else {
+			const controller = new AbortController();
+			timerId = setTimeout(() => controller.abort(), 10000);
+			signal = controller.signal;
+		}
+
 		try {
-			const fetchResponse = await fetch(url, { headers });
+			const fetchResponse = await fetch(url, { headers, signal });
+			if (timerId !== undefined) clearTimeout(timerId);
 			if (!fetchResponse.ok) return null;
 			const response = await fetchResponse.json();
 
@@ -101,7 +126,12 @@ const ProviderApple = (() => {
 			}
 			return response;
 		} catch (e) {
-			console.error("[ProviderApple] getSyncedLyrics error:", e);
+			if (timerId !== undefined) clearTimeout(timerId);
+			if (e.name === "AbortError" || e.name === "TimeoutError") {
+				console.error("[ProviderApple] getSyncedLyrics timeout");
+			} else {
+				console.error("[ProviderApple] getSyncedLyrics error:", e);
+			}
 			return null;
 		}
 	}

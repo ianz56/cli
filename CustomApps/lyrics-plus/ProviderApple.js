@@ -286,7 +286,7 @@ const ProviderApple = (() => {
 
 			result.karaoke = karaoke.length > 0 ? karaoke : null;
 			result.synced = synced.length > 0 ? synced : null;
-			result.unsynced = unsynced && unsynced.length > 0 ? unsynced : result.synced;
+			result.unsynced = unsynced && unsynced.length > 0 ? unsynced : result.synced ? result.synced.map((item) => ({ text: item.text })) : null;
 
 			// Extract songwriters from metadata into copyright
 			if (lyricsData.metadata && Array.isArray(lyricsData.metadata.songwriters) && lyricsData.metadata.songwriters.length > 0) {

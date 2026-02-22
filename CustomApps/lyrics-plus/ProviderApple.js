@@ -47,8 +47,8 @@ const ProviderApple = (() => {
 			}
 
 			// Find best match
-			const normalizedTitle = query.songName.toLowerCase().trim();
-			const normalizedArtist = query.artistName.toLowerCase().trim();
+			const normalizedTitle = query.songName?.toLowerCase().trim() ?? "";
+			const normalizedArtist = query.artistName?.toLowerCase().trim() ?? "";
 
 			// Try to find exact match first
 			let match = data.results.find(
@@ -184,6 +184,8 @@ const ProviderApple = (() => {
 		lyricsJson.content.forEach((line) => {
 			const lineStartTime = line.timestamp;
 			const lineEndTime = line.endtime;
+
+			if (lineStartTime == null) return;
 
 			// Process Main Text
 			const mainWords = processWords(line.text || [], lineStartTime, false);

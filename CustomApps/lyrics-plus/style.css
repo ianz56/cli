@@ -347,9 +347,14 @@ div.lyrics-tabBar-headerItemLink {
 	background-position: top right !important;
 }
 
+.lyrics-lyricsContainer-LyricsLine:hover .lyrics-lyricsContainer-Karaoke-Word {
+	background-position: top left;
+}
+
 .lyrics-lyricsContainer-LyricsLine:hover .lyrics-lyricsContainer-Karaoke-WordRTL {
 	background-position: top right;
 }
+
 
 .lyrics-lyricsContainer-Karaoke-BackgroundLine {
 	opacity: 0.6;

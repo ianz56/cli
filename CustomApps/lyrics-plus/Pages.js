@@ -67,8 +67,11 @@ const renderPerformer = (performer, previousPerformer, compact) => {
 };
 
 const KaraokeLine = ({ text, isActive, position, startTime, endTime }) => {
-	if (!isActive && (position > startTime || (endTime != null && position > endTime))) {
-		return text.map(({ word }) => word).join("");
+	if (
+		(!isActive && (position > startTime || (endTime != null && position > endTime)) && position > startTime) ||
+		(endTime != null && position > endTime)
+	) {
+		return text.map(({ word }, i) => (typeof word === "string" ? word : react.cloneElement(word, { key: i })));
 	}
 
 	const isRTL = isRTLText(text.map(({ word }) => word).join(""));
@@ -152,7 +155,7 @@ const SyncedLyricsPage = react.memo(({ lyrics = [], provider, copyright, isKara 
 				},
 				key: lyricsId,
 			},
-			activeLines.map(({ text, lineNumber, startTime, endTime, originalText, performer, background, backgroundStartTime, backgroundEndTime }, i) => {
+			activeLines.map(({ text, lineNumber, startTime, endTime, originalText, performer, background }, i) => {
 				if (i === 1 && activeLineIndex === 1) {
 					return react.createElement(IdlingIndicator, {
 						progress: position / activeLines[2].startTime,
@@ -235,11 +238,11 @@ const SyncedLyricsPage = react.memo(({ lyrics = [], provider, copyright, isKara 
 									className: "lyrics-lyricsContainer-Karaoke-BackgroundLine",
 								},
 								!isKara
-									? background.map((w) => w.word).join("")
+									? background.map((w, i) => (typeof w.word === "string" ? w.word : react.cloneElement(w.word, { key: i })))
 									: react.createElement(KaraokeLine, {
 											text: background,
-											startTime: backgroundStartTime ?? startTime,
-											endTime: backgroundEndTime ?? endTime,
+											startTime,
+											endTime,
 											position,
 											isActive,
 										})
@@ -475,7 +478,7 @@ const SyncedExpandedLyricsPage = react.memo(({ lyrics, provider, copyright, isKa
 		react.createElement("p", {
 			className: "lyrics-lyricsContainer-LyricsUnsyncedPadding",
 		}),
-		padded.map(({ text, startTime, endTime, originalText, performer, background, backgroundStartTime, backgroundEndTime }, i) => {
+		padded.map(({ text, startTime, endTime, originalText, performer, background }, i) => {
 			if (i === 0) {
 				return react.createElement(IdlingIndicator, {
 					isActive: activeLineIndex === 0,
@@ -486,7 +489,7 @@ const SyncedExpandedLyricsPage = react.memo(({ lyrics, provider, copyright, isKa
 
 			const isFocused = i === activeLineIndex;
 			const isPlaying = startTime != null && endTime != null && position >= startTime && position <= endTime;
-			const isPast = !isFocused && ((endTime != null && position > endTime) || (startTime != null && position > startTime));
+			const isPast = (endTime != null && position > endTime) || (!isFocused && startTime != null && position > startTime);
 			const isActive = isFocused || isPlaying;
 			const showTranslatedBelow = CONFIG.visual["translate:display-mode"] === "below";
 			// If we have original text and we are showing translated below, we should show the original text
@@ -535,11 +538,11 @@ const SyncedExpandedLyricsPage = react.memo(({ lyrics, provider, copyright, isKa
 								className: "lyrics-lyricsContainer-Karaoke-BackgroundLine",
 							},
 							!isKara
-								? background.map((w) => w.word).join("")
+								? background.map((w, i) => (typeof w.word === "string" ? w.word : react.cloneElement(w.word, { key: i })))
 								: react.createElement(KaraokeLine, {
 										text: background,
-										startTime: backgroundStartTime ?? startTime,
-										endTime: backgroundEndTime ?? endTime,
+										startTime,
+										endTime,
 										position,
 										isActive,
 									})
@@ -644,7 +647,7 @@ const noteContainer = document.createElement("div");
 noteContainer.classList.add("lyrics-Genius-noteContainer");
 const noteDivider = document.createElement("div");
 noteDivider.classList.add("lyrics-Genius-divider");
-noteDivider.innerHTML = `<svg width="32" height="32" viewBox="0 0 13 12" fill="currentColor"><path d="M13 10L8 4.206 3 10z"/></svg>`;
+noteDivider.innerHTML = `<svg width="32" height="32" viewBox="0 0 13 4" fill="currentColor"><path d="M13 10L8 4.206 3 10z"/></svg>`;
 noteDivider.style.setProperty("--link-left", 0);
 const noteTextContainer = document.createElement("div");
 noteTextContainer.classList.add("lyrics-Genius-noteTextContainer");

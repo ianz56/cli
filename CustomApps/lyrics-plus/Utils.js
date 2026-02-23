@@ -134,14 +134,15 @@ const Utils = {
 	},
 	processTranslatedLyrics(translated, original, bgResult) {
 		return original.map((lyric, index) => {
+			const translatedText = translated[index];
 			const line = {
 				...lyric,
-				text: this.rubyTextToReact(translated[index]),
+				text: translatedText != null ? this.rubyTextToReact(translatedText) : lyric.text,
 				originalText: lyric.text,
 			};
 			// If background was converted, replace with converted text
 			if (bgResult?.[index]) {
-				const convertedBgText = typeof bgResult[index] === "string" ? bgResult[index] : this.rubyTextToReact(bgResult[index]);
+				const convertedBgText = typeof bgResult[index] === "string" ? this.rubyTextToReact(bgResult[index]) : bgResult[index];
 				line.background = [{ word: convertedBgText, time: 0, isBackground: true }];
 			}
 			return line;
@@ -221,7 +222,7 @@ const Utils = {
 			return text
 				.map((word) => {
 					wordTime += word.time;
-					return `${word.word}<${this.formatTime(wordTime)}>`;
+					return `${this.formatTextWithTimestamps(word.word)}<${this.formatTime(wordTime)}>`;
 				})
 				.join("");
 		}

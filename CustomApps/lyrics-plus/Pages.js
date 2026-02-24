@@ -253,6 +253,7 @@ const SyncedLyricsPage = react.memo(({ lyrics = [], provider, copyright, isKara 
 							{
 								style: {
 									opacity: 0.5,
+									fontSize: "0.9em",
 								},
 								onContextMenu: (event) => {
 									event.preventDefault();

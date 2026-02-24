@@ -156,6 +156,7 @@ const ProviderIanz56 = (() => {
 		const lines = lyricsJson.lines || [];
 		const karaoke = [];
 		const synced = [];
+		const unsynced = [];
 		const ianz56Translation = [];
 
 		/**
@@ -262,13 +263,41 @@ const ProviderIanz56 = (() => {
 				background: backgroundWords.length ? backgroundWords : undefined,
 			});
 
+			const mainTextStr = (line.text || "").trim();
+			const bgTextStr = backgroundWords
+				.map((w) => w.word)
+				.join("")
+				.replace(/\s+/g, " ")
+				.trim();
+
+			let valText = mainTextStr;
+			if (bgTextStr) {
+				if (bgStart < mainStart) {
+					valText = `(${bgTextStr}) ${valText}`.trim();
+				} else {
+					valText = `${valText} (${bgTextStr})`.trim();
+				}
+			}
+			if (valText) {
+				unsynced.push({ text: valText });
+			}
+
 			if (line.translation) {
+				let translatedText = line.translation.trim();
+				let origText = (line.text || "").trim();
+				if (bgTextStr) {
+					if (bgStart < mainStart) {
+						origText = `(${bgTextStr}) ${origText}`.trim();
+					} else {
+						origText = `${origText} (${bgTextStr})`.trim();
+					}
+				}
 				ianz56Translation.push({
 					startTime: Math.round(lineStartTime * 1000),
 					endTime: Math.round(lineEndTime * 1000),
-					text: line.translation,
-					originalText: line.text || "",
-					background: backgroundWords.length ? backgroundWords : undefined,
+					text: translatedText,
+					originalText: origText,
+					// background: backgroundWords.length ? backgroundWords : undefined,
 				});
 			}
 		});
@@ -278,7 +307,7 @@ const ProviderIanz56 = (() => {
 		synced.sort((a, b) => a.startTime - b.startTime);
 		ianz56Translation.sort((a, b) => a.startTime - b.startTime);
 
-		return { karaoke, synced, ianz56Translation: ianz56Translation.length > 0 ? ianz56Translation : null };
+		return { karaoke, synced, unsynced, ianz56Translation: ianz56Translation.length > 0 ? ianz56Translation : null };
 	}
 
 	/**
@@ -312,11 +341,11 @@ const ProviderIanz56 = (() => {
 			}
 
 			const lyricsJson = await fetchLyricsJson(match.jsonPath);
-			const { karaoke, synced, ianz56Translation } = convertToKaraokeFormat(lyricsJson);
+			const { karaoke, synced, unsynced, ianz56Translation } = convertToKaraokeFormat(lyricsJson);
 
 			result.karaoke = karaoke.length > 0 ? karaoke : null;
 			result.synced = synced.length > 0 ? synced : null;
-			result.unsynced = result.synced; // Unsynced fallback to synced as no raw unsynced provided usually by format
+			result.unsynced = unsynced.length > 0 ? unsynced : null;
 			result.ianz56Translation = ianz56Translation;
 
 			return result;

@@ -268,6 +268,7 @@ const ProviderIanz56 = (() => {
 					endTime: Math.round(lineEndTime * 1000),
 					text: line.translation,
 					originalText: line.text || "",
+					background: backgroundWords.length ? backgroundWords : undefined,
 				});
 			}
 		});

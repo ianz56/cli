@@ -392,7 +392,7 @@ const AdjustmentsMenu = react.memo(({ mode, hasPerformer }) => {
 									type: ConfigAdjust,
 									min: Number.NEGATIVE_INFINITY,
 									max: Number.POSITIVE_INFINITY,
-									step: 250,
+									step: 50,
 									when: () => mode === SYNCED || mode === KARAOKE,
 								},
 								{

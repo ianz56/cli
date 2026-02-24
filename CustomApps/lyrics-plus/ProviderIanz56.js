@@ -32,18 +32,22 @@ const ProviderIanz56 = (() => {
 			return indexCache;
 		}
 
-		try {
-			// Try using Spicetify's CosmosAsync for CORS handling
-			const response = await Spicetify.CosmosAsync.get(indexUrl);
-			if (response) {
-				indexCache = response;
-				lastIndexFetch = now;
+		async function fetchIndex() {
+			const now = Date.now();
+			const indexUrl = BASE_URL + "index.json?t=" + now;
+			if (indexCache && now - lastIndexFetch < CACHE_DURATION) {
 				return indexCache;
 			}
-		} catch (e) {
-			console.warn("[ianz56] CosmosAsync failed, trying fetch:", e);
-		}
 
+			const response = await fetch(indexUrl);
+			if (!response.ok) {
+				throw new Error(`Failed to fetch index: ${response.status}`);
+			}
+
+			indexCache = await response.json();
+			lastIndexFetch = now;
+			return indexCache;
+		}
 		// Fallback to regular fetch
 		const response = await fetch(indexUrl);
 		if (!response.ok) {
@@ -77,6 +81,7 @@ const ProviderIanz56 = (() => {
 
 		// Try partial match (artist contains or title contains)
 		match = index.find((entry) => {
+			if (!normalizedArtist) return false;
 			const entryArtist = normalize(entry.artist);
 			const entryTitle = normalize(entry.title);
 			return (
@@ -85,7 +90,6 @@ const ProviderIanz56 = (() => {
 				(entryTitle.includes(normalizedTitle) || normalizedTitle.includes(entryTitle))
 			);
 		});
-
 		if (match) return match;
 
 		// Try title-only match (for cases where artist field is empty in index)
@@ -225,7 +229,7 @@ const ProviderIanz56 = (() => {
 				if (bgWords.length > 0) {
 					backgroundStartTime = bgWords[0].begin * 1000; // in ms
 					backgroundEndTime = bgWords[bgWords.length - 1].end * 1000;
-					backgroundWords = processWords(bgWords, bgWords[0].begin, true);
+					backgroundWords = processWords(bgWords, lineStartTime, true);
 				}
 			}
 

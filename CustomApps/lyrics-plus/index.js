@@ -175,6 +175,7 @@ const emptyState = {
 	musixmatchAvailableTranslations: null,
 	musixmatchTrackId: null,
 	musixmatchTranslationLanguage: null,
+	ianz56Translation: null,
 };
 
 let lyricContainerUpdate;
@@ -222,6 +223,7 @@ class LyricsContainer extends react.Component {
 			musixmatchAvailableTranslations: [],
 			musixmatchTrackId: null,
 			neteaseTranslation: null,
+			ianz56Translation: null,
 			uri: "",
 			provider: "",
 			colors: {
@@ -622,6 +624,7 @@ class LyricsContainer extends react.Component {
 					hk: null,
 					tw: null,
 					neteaseTranslation: null,
+					ianz56Translation: null,
 					...tempState,
 					...translationOverrides,
 					language: defaultLanguage,
@@ -1105,7 +1108,11 @@ class LyricsContainer extends react.Component {
 		const lang = this.provideLanguageCode(this.state.currentLyrics);
 		const friendlyLanguage = lang && new Intl.DisplayNames(["en"], { type: "language" }).of(lang.split("-")[0])?.toLowerCase();
 		const hasMusixmatchLanguages = Array.isArray(this.state.musixmatchAvailableTranslations) && this.state.musixmatchAvailableTranslations.length > 0;
-		const hasTranslation = this.state.neteaseTranslation !== null || this.state.musixmatchTranslation !== null || hasMusixmatchLanguages;
+		const hasTranslation =
+			this.state.neteaseTranslation !== null ||
+			this.state.musixmatchTranslation !== null ||
+			hasMusixmatchLanguages ||
+			this.state.ianz56Translation !== null;
 		const hasPerformer = !!this.state.currentLyrics?.some((line) => line.performer);
 
 		if (mode !== -1) {
@@ -1198,6 +1205,7 @@ class LyricsContainer extends react.Component {
 						hasTranslation: {
 							musixmatch: this.state.musixmatchTranslation !== null,
 							netease: this.state.neteaseTranslation !== null,
+							ianz56: this.state.ianz56Translation !== null,
 						},
 						musixmatchLanguages: this.state.musixmatchAvailableTranslations || [],
 						musixmatchSelectedLanguage: this.state.musixmatchTranslationLanguage || CONFIG.visual["musixmatch-translation-language"],

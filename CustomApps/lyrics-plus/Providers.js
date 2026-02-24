@@ -257,6 +257,7 @@ const Providers = {
 			karaoke: null,
 			synced: null,
 			unsynced: null,
+			ianz56Translation: null,
 			provider: "ianz56",
 			copyright: null,
 		};
@@ -278,6 +279,7 @@ const Providers = {
 		result.synced = list.synced;
 		result.unsynced = list.unsynced;
 		result.copyright = list.copyright;
+		result.ianz56Translation = list.ianz56Translation;
 
 		return result;
 	},

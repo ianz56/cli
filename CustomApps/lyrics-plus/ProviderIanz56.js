@@ -156,6 +156,7 @@ const ProviderIanz56 = (() => {
 		const lines = lyricsJson.lines || [];
 		const karaoke = [];
 		const synced = [];
+		const ianz56Translation = [];
 
 		/**
 		 * Fill time gaps between words with empty "spacer" words
@@ -252,23 +253,31 @@ const ProviderIanz56 = (() => {
 				isBackground: isMainBackground,
 				// Separate background vocal track
 				background: backgroundWords.length > 0 ? backgroundWords : undefined,
-				originalText: line.translation || "",
 			});
 
 			synced.push({
 				startTime: Math.round(lineStartTime * 1000),
 				endTime: Math.round(lineEndTime * 1000),
-				text: line.translation || line.text || "",
-				originalText: line.translation ? line.text || "" : "",
+				text: line.text || "",
 				background: backgroundWords.length ? backgroundWords : undefined,
 			});
+
+			if (line.translation) {
+				ianz56Translation.push({
+					startTime: Math.round(lineStartTime * 1000),
+					endTime: Math.round(lineEndTime * 1000),
+					text: line.translation,
+					originalText: line.text || "",
+				});
+			}
 		});
 
 		// Sort by start time
 		karaoke.sort((a, b) => a.startTime - b.startTime);
 		synced.sort((a, b) => a.startTime - b.startTime);
+		ianz56Translation.sort((a, b) => a.startTime - b.startTime);
 
-		return { karaoke, synced };
+		return { karaoke, synced, ianz56Translation: ianz56Translation.length > 0 ? ianz56Translation : null };
 	}
 
 	/**
@@ -283,6 +292,7 @@ const ProviderIanz56 = (() => {
 			karaoke: null,
 			synced: null,
 			unsynced: null,
+			ianz56Translation: null,
 			copyright: null,
 			error: null,
 		};
@@ -301,11 +311,12 @@ const ProviderIanz56 = (() => {
 			}
 
 			const lyricsJson = await fetchLyricsJson(match.jsonPath);
-			const { karaoke, synced } = convertToKaraokeFormat(lyricsJson);
+			const { karaoke, synced, ianz56Translation } = convertToKaraokeFormat(lyricsJson);
 
 			result.karaoke = karaoke.length > 0 ? karaoke : null;
 			result.synced = synced.length > 0 ? synced : null;
 			result.unsynced = result.synced; // Unsynced fallback to synced as no raw unsynced provided usually by format
+			result.ianz56Translation = ianz56Translation;
 
 			return result;
 		} catch (e) {

@@ -183,6 +183,13 @@ const TranslationMenu = react.memo(({ friendlyLanguage, hasTranslation, musixmat
 			};
 		}
 
+		if (hasTranslation.ianz56) {
+			sourceOptions = {
+				...sourceOptions,
+				ianz56Translation: "ianz56 repo",
+			};
+		}
+
 		switch (friendlyLanguage) {
 			case "japanese": {
 				modeOptions = {

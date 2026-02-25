@@ -87,8 +87,7 @@ const ProviderIanz56 = (() => {
 			}
 
 			// Require exact title match AND some artist overlap
-			return entryTitle === normalizedTitle &&
-				(entryArtist.includes(normalizedArtist) || normalizedArtist.includes(entryArtist));
+			return entryTitle === normalizedTitle && (entryArtist.includes(normalizedArtist) || normalizedArtist.includes(entryArtist));
 		});
 
 		return match;
@@ -106,16 +105,6 @@ const ProviderIanz56 = (() => {
 		const encodedPath = path.split("/").map(encodeURIComponent).join("/");
 		const url = BASE_URL + encodedPath;
 
-		console.log("[ianz56] Fetching JSON lyrics from:", url);
-
-		const response = await fetch(url);
-		if (!response.ok) {
-			throw new Error(`Failed to fetch lyrics: ${response.status}`);
-		}
-
-		return response.json();
-
-		// Fallback to regular fetch
 		const response = await fetch(url);
 		if (!response.ok) {
 			throw new Error(`Failed to fetch lyrics: ${response.status}`);
@@ -229,8 +218,8 @@ const ProviderIanz56 = (() => {
 			karaoke.push({
 				startTime: Math.round(lineStartTime * 1000),
 				endTime: Math.round(lineEndTime * 1000),
-				backgroundStartTime: backgroundStartTime || undefined,
-				backgroundEndTime: backgroundEndTime || undefined,
+				backgroundStartTime: backgroundWords.length > 0 ? backgroundStartTime : undefined,
+				backgroundEndTime: backgroundWords.length > 0 ? backgroundEndTime : undefined,
 				text: mainWords,
 				isBackground: isMainBackground,
 				// Separate background vocal track
@@ -287,6 +276,7 @@ const ProviderIanz56 = (() => {
 		// Sort by start time
 		karaoke.sort((a, b) => a.startTime - b.startTime);
 		synced.sort((a, b) => a.startTime - b.startTime);
+		unsynced.sort((a, b) => a.startTime - b.startTime);
 		ianz56Translation.sort((a, b) => a.startTime - b.startTime);
 
 		return { karaoke, synced, unsynced, ianz56Translation: hasTranslation ? ianz56Translation : null };

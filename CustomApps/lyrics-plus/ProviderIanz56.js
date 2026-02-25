@@ -32,22 +32,6 @@ const ProviderIanz56 = (() => {
 			return indexCache;
 		}
 
-		async function fetchIndex() {
-			const now = Date.now();
-			const indexUrl = BASE_URL + "index.json?t=" + now;
-			if (indexCache && now - lastIndexFetch < CACHE_DURATION) {
-				return indexCache;
-			}
-
-			const response = await fetch(indexUrl);
-			if (!response.ok) {
-				throw new Error(`Failed to fetch index: ${response.status}`);
-			}
-
-			indexCache = await response.json();
-			lastIndexFetch = now;
-			return indexCache;
-		}
 		// Fallback to regular fetch
 		const response = await fetch(indexUrl);
 		if (!response.ok) {

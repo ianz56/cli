@@ -86,10 +86,9 @@ const ProviderIanz56 = (() => {
 				return entryTitle === normalizedTitle || entryTitle.includes(normalizedTitle) || normalizedTitle.includes(entryTitle);
 			}
 
-			// If artist is NOT empty, require EXACT title match
-			// This allows matching "Tanpa Cinta" (exact) even if artist is "Yovie" vs "Tiara"
-			// But prevents matching "Cinta" (partial) for "Tanpa Cinta"
-			return entryTitle === normalizedTitle;
+			// Require exact title match AND some artist overlap
+			return entryTitle === normalizedTitle &&
+				(entryArtist.includes(normalizedArtist) || normalizedArtist.includes(entryArtist));
 		});
 
 		return match;

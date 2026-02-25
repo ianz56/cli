@@ -304,7 +304,6 @@ const ProviderIanz56 = (() => {
 			const match = findMatch(info.artist, info.title, index);
 
 			if (!match) {
-				console.log("[ianz56] No match found");
 				throw new Error("No matching lyrics found");
 			}
 
@@ -322,7 +321,6 @@ const ProviderIanz56 = (() => {
 
 			return result;
 		} catch (e) {
-			console.error("[ianz56] Error:", e);
 			result.error = "Request error or lyrics not found";
 			return result;
 		}

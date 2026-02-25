@@ -109,15 +109,12 @@ const ProviderIanz56 = (() => {
 
 		console.log("[ianz56] Fetching JSON lyrics from:", url);
 
-		try {
-			// Try using Spicetify's CosmosAsync for CORS handling
-			const response = await Spicetify.CosmosAsync.get(url);
-			if (response) {
-				return response;
-			}
-		} catch (e) {
-			console.warn("[ianz56] CosmosAsync failed, trying fetch:", e);
+		const response = await fetch(url);
+		if (!response.ok) {
+			throw new Error(`Failed to fetch lyrics: ${response.status}`);
 		}
+
+		return response.json();
 
 		// Fallback to regular fetch
 		const response = await fetch(url);

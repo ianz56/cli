@@ -205,6 +205,20 @@ const ProviderApple = (() => {
 				.join("")
 				.trim();
 
+			let combinedText = mainTextStr;
+			if (bgTextStr) {
+				const firstBgStart = line.backgroundText?.[0]?.timestamp;
+				const firstMainStart = line.text?.[0]?.timestamp;
+				
+				if (firstBgStart != null && firstMainStart != null && firstBgStart < firstMainStart) {
+					combinedText = `(${bgTextStr}) ${combinedText}`.trim();
+				} else {
+					combinedText = `${combinedText} (${bgTextStr})`.trim();
+				}
+			}
+
+			const isInline = CONFIG?.visual?.["synced-background-inline"];
+
 			if (lyricsJson.type && lyricsJson.type !== "None") {
 				karaoke.push({
 					startTime: lineStartTime,
@@ -217,18 +231,17 @@ const ProviderApple = (() => {
 				synced.push({
 					startTime: lineStartTime,
 					endTime: lineEndTime,
-					text: mainTextStr,
-					background: backgroundWords,
+					text: isInline ? combinedText : mainTextStr,
+					background: !isInline && backgroundWords.length > 0 ? backgroundWords : undefined,
 				});
 			}
 
-			// Unsynced contains combined text
-			let valText = mainTextStr;
-			if (bgTextStr) valText += ` (${bgTextStr})`;
-			// Allow empty lines if they have background text?
-			// Or only if valText is not empty.
-			if (valText) {
-				unsynced.push({ text: valText });
+			if (isInline) {
+				if (combinedText) unsynced.push({ text: combinedText });
+			} else {
+				let valText = mainTextStr;
+				if (bgTextStr) valText += ` (${bgTextStr})`;
+				if (valText) unsynced.push({ text: valText });
 			}
 		});
 

@@ -613,6 +613,12 @@ function openConfig() {
 					type: ConfigSlider,
 				},
 				{
+					desc: "Synced: Inline background vocals",
+					// info: "Show background vocals inline with parentheses instead of on a separate line.",
+					key: "synced-background-inline",
+					type: ConfigSlider,
+				},
+				{
 					desc: "Noise overlay",
 					key: "noise",
 					type: ConfigSlider,
@@ -679,6 +685,10 @@ function openConfig() {
 				CONFIG.visual[name] = value;
 				localStorage.setItem(`${APP_NAME}:visual:${name}`, value);
 				lyricContainerUpdate?.();
+
+				if (name === "synced-background-inline") {
+					reloadLyrics?.();
+				}
 
 				const configChange = new CustomEvent("lyrics-plus", {
 					detail: {

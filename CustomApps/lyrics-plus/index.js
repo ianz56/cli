@@ -65,6 +65,7 @@ const CONFIG = {
 		"fullscreen-key": localStorage.getItem("lyrics-plus:visual:fullscreen-key") || "f12",
 		"show-performers": getConfig("lyrics-plus:visual:show-performers", true),
 		"synced-compact": getConfig("lyrics-plus:visual:synced-compact"),
+		"synced-background-inline": getConfig("lyrics-plus:visual:synced-background-inline", true),
 		"dual-genius": getConfig("lyrics-plus:visual:dual-genius"),
 		"global-delay": Number(localStorage.getItem("lyrics-plus:visual:global-delay")) || 0,
 		delay: 0,

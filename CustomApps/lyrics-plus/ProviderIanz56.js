@@ -226,13 +226,6 @@ const ProviderIanz56 = (() => {
 				background: backgroundWords.length > 0 ? backgroundWords : undefined,
 			});
 
-			synced.push({
-				startTime: Math.round(lineStartTime * 1000),
-				endTime: Math.round(lineEndTime * 1000),
-				text: line.text || "",
-				background: backgroundWords.length ? backgroundWords : undefined,
-			});
-
 			const mainTextStr = (line.text || "").trim();
 			const bgTextStr = backgroundWords
 				.map((w) => w.word)
@@ -240,36 +233,40 @@ const ProviderIanz56 = (() => {
 				.replace(/\s+/g, " ")
 				.trim();
 
-			let valText = mainTextStr;
+			let combinedText = mainTextStr;
 			if (bgTextStr) {
 				if (bgStart < mainStart) {
-					valText = `(${bgTextStr}) ${valText}`.trim();
+					combinedText = `(${bgTextStr}) ${combinedText}`.trim();
 				} else {
-					valText = `${valText} (${bgTextStr})`.trim();
+					combinedText = `${combinedText} (${bgTextStr})`.trim();
 				}
 			}
-			if (valText) {
-				unsynced.push({ text: valText });
+
+			const isInline = CONFIG?.visual?.["synced-background-inline"] ?? false;
+
+			synced.push({
+				startTime: Math.round(lineStartTime * 1000),
+				endTime: Math.round(lineEndTime * 1000),
+				text: isInline ? combinedText : mainTextStr || "",
+				background: !isInline && backgroundWords.length ? backgroundWords : undefined,
+			});
+
+			if (isInline) {
+				if (combinedText) unsynced.push({ startTime: Math.round(lineStartTime * 1000), text: combinedText });
+			} else {
+				let valText = mainTextStr;
+				if (bgTextStr) valText += ` (${bgTextStr})`;
+				if (valText) unsynced.push({ startTime: Math.round(lineStartTime * 1000), text: valText });
 			}
 
 			let translatedText = (line.translation || "").trim();
 			if (translatedText) hasTranslation = true;
 
-			let origText = (line.text || "").trim();
-			if (bgTextStr) {
-				if (bgStart < mainStart) {
-					origText = `(${bgTextStr}) ${origText}`.trim();
-				} else {
-					origText = `${origText} (${bgTextStr})`.trim();
-				}
-			}
-
 			ianz56Translation.push({
 				startTime: Math.round(lineStartTime * 1000),
 				endTime: Math.round(lineEndTime * 1000),
-				text: translatedText || origText,
-				originalText: origText,
-				// background: backgroundWords.length ? backgroundWords : undefined,
+				text: translatedText || combinedText,
+				originalText: combinedText,
 			});
 		});
 

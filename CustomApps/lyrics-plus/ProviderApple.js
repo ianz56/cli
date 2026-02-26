@@ -209,7 +209,7 @@ const ProviderApple = (() => {
 			if (bgTextStr) {
 				const firstBgStart = line.backgroundText?.[0]?.timestamp;
 				const firstMainStart = line.text?.[0]?.timestamp;
-				
+
 				if (firstBgStart != null && firstMainStart != null && firstBgStart < firstMainStart) {
 					combinedText = `(${bgTextStr}) ${combinedText}`.trim();
 				} else {

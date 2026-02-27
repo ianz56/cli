@@ -2,6 +2,18 @@ const ProviderApple = (() => {
 	const LYRICS_BASE_URL = "https://lyrics.paxsenix.org/";
 	const SEARCH_BASE_URL = "https://itunes.apple.com/search";
 
+	function createTimeoutSignal(ms) {
+		let signal, timerId;
+		if (AbortSignal.timeout) {
+			signal = AbortSignal.timeout(ms);
+		} else {
+			const controller = new AbortController();
+			timerId = setTimeout(() => controller.abort(), ms);
+			signal = controller.signal;
+		}
+		return { signal, timerId };
+	}
+
 	/**
 	 * Search for a song using iTunes Search API (public, no auth)
 	 * @param {Object} query - { songName, artistName }
@@ -14,18 +26,11 @@ const ProviderApple = (() => {
 
 		const url = `${SEARCH_BASE_URL}?` + `term=${encodeURIComponent(searchTerm)}&` + `entity=song&` + `limit=10`;
 
-		let signal, timerId;
-		if (AbortSignal.timeout) {
-			signal = AbortSignal.timeout(10000);
-		} else {
-			const controller = new AbortController();
-			timerId = setTimeout(() => controller.abort(), 10000);
-			signal = controller.signal;
-		}
+		const { signal, timerId } = createTimeoutSignal(10000);
 
 		try {
 			const response = await fetch(url, { signal });
-			clearTimeout(timerId);
+			if (timerId) clearTimeout(timerId);
 			if (!response.ok) {
 				console.error("[ProviderApple] iTunes search failed:", response.status);
 				return null;
@@ -73,7 +78,7 @@ const ProviderApple = (() => {
 				artworkUrl: match.artworkUrl100,
 			};
 		} catch (e) {
-			clearTimeout(timerId);
+			if (timerId) clearTimeout(timerId);
 			if (e.name === "AbortError" || e.name === "TimeoutError") console.error("[ProviderApple] iTunes search timeout");
 			else if (e.message === "Failed to fetch") console.warn("[ProviderApple] iTunes search failed to fetch");
 			else console.error("[ProviderApple] getSongInfo error:", e);
@@ -86,8 +91,8 @@ const ProviderApple = (() => {
 	 * @param {string|number} id - The Apple Music song ID
 	 * @returns {Promise<Object|null>}
 	 */
-	async function getSyncedLyrics(id) {
-		const token = CONFIG?.providers?.apple?.token;
+	async function getSyncedLyrics(id, config) {
+		const token = config?.providers?.apple?.token;
 		let url = `${LYRICS_BASE_URL}apple-music/lyrics?id=${id}`;
 		const headers = {};
 
@@ -97,18 +102,11 @@ const ProviderApple = (() => {
 			headers["Content-Type"] = "application/json";
 		}
 
-		let signal, timerId;
-		if (AbortSignal.timeout) {
-			signal = AbortSignal.timeout(10000);
-		} else {
-			const controller = new AbortController();
-			timerId = setTimeout(() => controller.abort(), 10000);
-			signal = controller.signal;
-		}
+		const { signal, timerId } = createTimeoutSignal(10000);
 
 		try {
 			const fetchResponse = await fetch(url, { headers, signal });
-			clearTimeout(timerId);
+			if (timerId) clearTimeout(timerId);
 			if (!fetchResponse.ok) return null;
 			const response = await fetchResponse.json();
 
@@ -125,7 +123,7 @@ const ProviderApple = (() => {
 			}
 			return response;
 		} catch (e) {
-			clearTimeout(timerId);
+			if (timerId) clearTimeout(timerId);
 			if (e.name === "AbortError" || e.name === "TimeoutError") console.error("[ProviderApple] getSyncedLyrics timeout");
 			else if (e.message === "Failed to fetch") console.warn("[ProviderApple] getSyncedLyrics failed to fetch");
 			else console.error("[ProviderApple] getSyncedLyrics error:", e);
@@ -133,7 +131,7 @@ const ProviderApple = (() => {
 		}
 	}
 
-	function parseJSON(lyricsJson) {
+	function parseJSON(lyricsJson, config) {
 		const karaoke = [];
 		const synced = [];
 		const unsynced = [];
@@ -217,7 +215,7 @@ const ProviderApple = (() => {
 				}
 			}
 
-			const isInline = CONFIG?.visual?.["synced-background-inline"];
+			const isInline = config?.visual?.["synced-background-inline"];
 
 			if (lyricsJson.type && lyricsJson.type !== "None") {
 				karaoke.push({
@@ -253,7 +251,7 @@ const ProviderApple = (() => {
 	 * @param {Object} info - Track info with artist, title, duration
 	 * @returns {Promise<Object>}
 	 */
-	async function findLyrics(info) {
+	async function findLyrics(info, config) {
 		const result = {
 			uri: info.uri,
 			provider: "Apple Music",
@@ -274,7 +272,7 @@ const ProviderApple = (() => {
 			}
 
 			// Fetch lyrics
-			const lyricsData = await getSyncedLyrics(songInfo.appleID);
+			const lyricsData = await getSyncedLyrics(songInfo.appleID, config);
 			if (!lyricsData) {
 				console.log("[ProviderApple] No lyrics data found");
 				result.error = "No lyrics found";
@@ -284,7 +282,7 @@ const ProviderApple = (() => {
 			// Parse content
 			let parsed;
 			if (lyricsData.content) {
-				parsed = parseJSON(lyricsData);
+				parsed = parseJSON(lyricsData, config);
 			}
 
 			if (!parsed) {

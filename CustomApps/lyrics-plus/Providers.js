@@ -233,7 +233,7 @@ const Providers = {
 
 		let list;
 		try {
-			list = await ProviderApple.findLyrics(info);
+			list = await ProviderApple.findLyrics(info, CONFIG);
 		} catch {
 			result.error = "No lyrics";
 			return result;

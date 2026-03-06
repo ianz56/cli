@@ -62,24 +62,39 @@ const findNextLineStartTime = (lines, fromIndex) => {
 	return null;
 };
 
-const LONG_PAUSE_THRESHOLD = 5000; // 5 seconds
+const LONG_PAUSE_THRESHOLD = 10000; // 5 seconds
 
-// Pre-process lyrics to inject virtual pause lines for long gaps
-const injectLongGaps = (lyrics) => {
+// Pre-process lyrics to inject virtual pause lines for long gaps and strip out short built-in pauses
+const processPauseLines = (lyrics) => {
 	if (!lyrics || !lyrics.length) return lyrics;
 	const result = [];
 	for (let i = 0; i < lyrics.length; i++) {
 		const line = lyrics[i];
-		result.push(line);
 		const nextLine = lyrics[i + 1];
-		if (line.endTime && nextLine && nextLine.startTime) {
-			const gap = nextLine.startTime - line.endTime;
-			// Don't inject a ♪ if one already exists
-			if (gap > LONG_PAUSE_THRESHOLD && !isPauseLine(line.text) && !isPauseLine(nextLine.text)) {
-				result.push({
-					text: "♪",
-					startTime: line.endTime,
-				});
+
+		if (isPauseLine(line.text)) {
+			// Check duration of built-in pause
+			const nextStart = findNextLineStartTime(lyrics, i);
+			const pauseStart = line.startTime || 0;
+			if (nextStart) {
+				const pauseDuration = nextStart - pauseStart;
+				if (pauseDuration >= LONG_PAUSE_THRESHOLD) {
+					result.push(line);
+				}
+			} else {
+				result.push(line);
+			}
+		} else {
+			result.push(line);
+			if (line.endTime && nextLine && nextLine.startTime) {
+				const gap = nextLine.startTime - line.endTime;
+				// Don't inject a ♪ if one already exists
+				if (gap > LONG_PAUSE_THRESHOLD && !isPauseLine(nextLine.text)) {
+					result.push({
+						text: "♪",
+						startTime: line.endTime,
+					});
+				}
 			}
 		}
 	}
@@ -153,7 +168,7 @@ const SyncedLyricsPage = react.memo(({ lyrics = [], provider, copyright, isKara 
 
 	const lyricWithEmptyLines = useMemo(
 		() =>
-			[emptyLine, emptyLine, ...injectLongGaps(lyrics)].map((line, i) => ({
+			[emptyLine, emptyLine, ...processPauseLines(lyrics)].map((line, i) => ({
 				...line,
 				lineNumber: i,
 			})),
@@ -509,7 +524,7 @@ const SyncedExpandedLyricsPage = react.memo(({ lyrics, provider, copyright, isKa
 		}
 	});
 
-	const padded = useMemo(() => [emptyLine, ...injectLongGaps(lyrics)], [lyrics]);
+	const padded = useMemo(() => [emptyLine, ...processPauseLines(lyrics)], [lyrics]);
 
 	const intialScroll = useMemo(() => [false], [lyrics]);
 

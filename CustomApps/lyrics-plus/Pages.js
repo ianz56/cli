@@ -18,17 +18,16 @@ const CreditFooter = react.memo(({ provider, copyright }) => {
 	);
 });
 
-const IdlingIndicator = ({ isActive, progress, delay }) => {
+const IdlingIndicator = ({ isActive, progress, delay, className = "", style = {} }) => {
 	return react.createElement(
 		"div",
 		{
 			className: `lyrics-idling-indicator ${
-				!isActive ? "lyrics-idling-indicator-hidden" : ""
-			} lyrics-lyricsContainer-LyricsLine lyrics-lyricsContainer-LyricsLine-active`,
+				isActive === false ? "lyrics-idling-indicator-hidden" : ""
+			} ${className}`.trim(),
 			style: {
-				"--position-index": 0,
-				"--animation-index": 1,
 				"--indicator-delay": `${delay}ms`,
+				...style,
 			},
 		},
 		react.createElement("div", { className: `lyrics-idling-indicator__circle ${progress >= 0.05 ? "active" : ""}` }),
@@ -228,13 +227,10 @@ const SyncedLyricsPage = react.memo(({ lyrics = [], provider, copyright, isKara 
 					const pauseStart = startTime || 0;
 					const pauseDuration = nextStart ? nextStart - pauseStart : 0;
 					const progress = pauseDuration > 0 ? (position - pauseStart) / pauseDuration : 0;
-					indicatorEl = react.createElement(
-						"div",
-						{ className: "lyrics-idling-indicator", style: { "--indicator-delay": `${pauseDuration / 3}ms` } },
-						react.createElement("div", { className: `lyrics-idling-indicator__circle ${progress >= 0.05 ? "active" : ""}` }),
-						react.createElement("div", { className: `lyrics-idling-indicator__circle ${progress >= 0.33 ? "active" : ""}` }),
-						react.createElement("div", { className: `lyrics-idling-indicator__circle ${progress >= 0.66 ? "active" : ""}` })
-					);
+					indicatorEl = react.createElement(IdlingIndicator, {
+						progress,
+						delay: pauseDuration / 3,
+					});
 				}
 
 				let className = "lyrics-lyricsContainer-LyricsLine";
@@ -559,6 +555,8 @@ const SyncedExpandedLyricsPage = react.memo(({ lyrics, provider, copyright, isKa
 					isActive: activeLineIndex === 0,
 					progress: nextStart ? position / nextStart : 0,
 					delay: nextStart ? nextStart / 3 : 0,
+					className: "lyrics-lyricsContainer-LyricsLine lyrics-lyricsContainer-LyricsLine-active",
+					style: { "--position-index": 0, "--animation-index": 1 },
 				});
 			}
 
@@ -572,13 +570,10 @@ const SyncedExpandedLyricsPage = react.memo(({ lyrics, provider, copyright, isKa
 				const pauseStart = startTime || 0;
 				const pauseDuration = nextStart ? nextStart - pauseStart : 0;
 				const progress = pauseDuration > 0 ? (position - pauseStart) / pauseDuration : 0;
-				indicatorEl = react.createElement(
-					"div",
-					{ className: "lyrics-idling-indicator", style: { "--indicator-delay": `${pauseDuration / 3}ms` } },
-					react.createElement("div", { className: `lyrics-idling-indicator__circle ${progress >= 0.05 ? "active" : ""}` }),
-					react.createElement("div", { className: `lyrics-idling-indicator__circle ${progress >= 0.33 ? "active" : ""}` }),
-					react.createElement("div", { className: `lyrics-idling-indicator__circle ${progress >= 0.66 ? "active" : ""}` })
-				);
+				indicatorEl = react.createElement(IdlingIndicator, {
+					progress,
+					delay: pauseDuration / 3,
+				});
 			}
 
 			const isPlaying = startTime != null && endTime != null && position >= startTime && position <= endTime;

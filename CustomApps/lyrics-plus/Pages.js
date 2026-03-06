@@ -81,8 +81,6 @@ const processPauseLines = (lyrics) => {
 				if (pauseDuration >= LONG_PAUSE_THRESHOLD) {
 					result.push(line);
 				}
-			} else {
-				result.push(line);
 			}
 		} else {
 			result.push(line);

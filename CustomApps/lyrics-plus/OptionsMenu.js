@@ -183,6 +183,13 @@ const TranslationMenu = react.memo(({ friendlyLanguage, hasTranslation, musixmat
 			};
 		}
 
+		if (hasTranslation.ianz56) {
+			sourceOptions = {
+				...sourceOptions,
+				ianz56Translation: "ianz56 repo",
+			};
+		}
+
 		switch (friendlyLanguage) {
 			case "japanese": {
 				modeOptions = {
@@ -259,6 +266,7 @@ const TranslationMenu = react.memo(({ friendlyLanguage, hasTranslation, musixmat
 		friendlyLanguage,
 		hasTranslation.musixmatch,
 		hasTranslation.netease,
+		hasTranslation.ianz56,
 		Array.isArray(musixmatchLanguages) ? musixmatchLanguages.join(",") : "",
 		musixmatchSelectedLanguage || "",
 		musixmatchTranslationPrefix,
@@ -351,7 +359,7 @@ const TranslationMenu = react.memo(({ friendlyLanguage, hasTranslation, musixmat
 	);
 });
 
-const AdjustmentsMenu = react.memo(({ mode }) => {
+const AdjustmentsMenu = react.memo(({ mode, hasPerformer }) => {
 	return react.createElement(
 		Spicetify.ReactComponent.TooltipWrapper,
 		{
@@ -385,7 +393,7 @@ const AdjustmentsMenu = react.memo(({ mode }) => {
 									type: ConfigAdjust,
 									min: Number.NEGATIVE_INFINITY,
 									max: Number.POSITIVE_INFINITY,
-									step: 250,
+									step: 50,
 									when: () => mode === SYNCED || mode === KARAOKE,
 								},
 								{
@@ -393,6 +401,12 @@ const AdjustmentsMenu = react.memo(({ mode }) => {
 									key: "synced-compact",
 									type: ConfigSlider,
 									when: () => mode === SYNCED || mode === KARAOKE,
+								},
+								{
+									desc: "Show performers",
+									key: "show-performers",
+									type: ConfigSlider,
+									when: () => hasPerformer && (mode === SYNCED || mode === KARAOKE || mode === UNSYNCED),
 								},
 								{
 									desc: "Dual panel",

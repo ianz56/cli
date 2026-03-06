@@ -62,7 +62,7 @@ const findNextLineStartTime = (lines, fromIndex) => {
 	return null;
 };
 
-const LONG_PAUSE_THRESHOLD = 10000; // 5 seconds
+const LONG_PAUSE_THRESHOLD = 8000; // 8 seconds
 
 // Pre-process lyrics to inject virtual pause lines for long gaps and strip out short built-in pauses
 const processPauseLines = (lyrics) => {
@@ -208,7 +208,7 @@ const SyncedLyricsPage = react.memo(({ lyrics = [], provider, copyright, isKara 
 			activeLines: lyricWithEmptyLines.slice(startIndex, endIndex + 1),
 			activeElementIndex: activeLineIndex - startIndex,
 		};
-	}, [activeLineIndex, lyricWithEmptyLines]);
+	}, [activeLineIndex, lyricWithEmptyLines, CONFIG.visual["lines-before"], CONFIG.visual["lines-after"]]);
 
 	let offset = lyricContainerEle.current ? lyricContainerEle.current.clientHeight / 2 : 0;
 	if (activeLineEle.current) {
@@ -564,7 +564,7 @@ const SyncedExpandedLyricsPage = react.memo(({ lyrics, provider, copyright, isKa
 			});
 			intialScroll[0] = true;
 		}
-	}, [activeLineRef.current]);
+	}, [activeLineIndex]);
 
 	return react.createElement(
 		"div",

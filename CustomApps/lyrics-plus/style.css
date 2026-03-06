@@ -658,10 +658,15 @@ div.lyrics-tabBar-headerItemLink {
 	display: inline-block;
 	opacity: 1;
 	transition: opacity 0.2s cubic-bezier(0, 0, 0.58, 1);
+	/* margin-top: 0.8em; */
 }
 
 .lyrics-idling-indicator-hidden {
 	opacity: 0;
+}
+
+.lyrics-lyricsContainer-LyricsLine-hidden {
+	display: none !important;
 }
 
 .lyrics-idling-indicator__circle {

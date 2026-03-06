@@ -22,9 +22,7 @@ const IdlingIndicator = ({ isActive, progress, delay, className = "", style = {}
 	return react.createElement(
 		"div",
 		{
-			className: `lyrics-idling-indicator ${
-				isActive === false ? "lyrics-idling-indicator-hidden" : ""
-			} ${className}`.trim(),
+			className: `lyrics-idling-indicator ${isActive === false ? "lyrics-idling-indicator-hidden" : ""} ${className}`.trim(),
 			style: {
 				"--indicator-delay": `${delay}ms`,
 				...style,

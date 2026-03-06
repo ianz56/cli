@@ -185,19 +185,37 @@ const SyncedLyricsPage = react.memo(({ lyrics = [], provider, copyright, isKara 
 		}
 	}
 
-	const activeLines = useMemo(() => {
-		const startIndex = Math.max(activeLineIndex - 1 - CONFIG.visual["lines-before"], 0);
-		// 3 lines = 1 padding top + 1 padding bottom + 1 active
-		const linesCount = CONFIG.visual["lines-before"] + CONFIG.visual["lines-after"] + 3;
-		return lyricWithEmptyLines.slice(startIndex, startIndex + linesCount);
+	const { activeLines, activeElementIndex } = useMemo(() => {
+		let startIndex = activeLineIndex;
+		let visibleBefore = 0;
+		const targetBefore = CONFIG.visual["lines-before"] + 1;
+		while (startIndex > 0 && visibleBefore < targetBefore) {
+			startIndex--;
+			if (!isPauseLine(lyricWithEmptyLines[startIndex].text)) {
+				visibleBefore++;
+			}
+		}
+
+		let endIndex = activeLineIndex;
+		let visibleAfter = 0;
+		const targetAfter = CONFIG.visual["lines-after"] + 1;
+		while (endIndex < lyricWithEmptyLines.length - 1 && visibleAfter < targetAfter) {
+			endIndex++;
+			if (!isPauseLine(lyricWithEmptyLines[endIndex].text)) {
+				visibleAfter++;
+			}
+		}
+
+		return {
+			activeLines: lyricWithEmptyLines.slice(startIndex, endIndex + 1),
+			activeElementIndex: activeLineIndex - startIndex,
+		};
 	}, [activeLineIndex, lyricWithEmptyLines]);
 
 	let offset = lyricContainerEle.current ? lyricContainerEle.current.clientHeight / 2 : 0;
 	if (activeLineEle.current) {
 		offset += -(activeLineEle.current.offsetTop + activeLineEle.current.clientHeight / 2);
 	}
-
-	const activeElementIndex = Math.min(activeLineIndex, CONFIG.visual["lines-before"] + 1);
 	const adjustedAnimationIndices = [];
 	let currentIndex = 0;
 	for (let j = activeElementIndex; j < activeLines.length; j++) {

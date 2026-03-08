@@ -316,10 +316,6 @@ div.lyrics-tabBar-headerItemLink {
 	background-position: top left !important;
 }
 
-.lyrics-lyricsContainer-LyricsLine:hover .lyrics-lyricsContainer-Karaoke-Word {
-	background-position: top left;
-}
-
 .lyrics-lyricsContainer-Karaoke-Word {
 	color: var(--lyrics-color-inactive);
 	background-image: linear-gradient(

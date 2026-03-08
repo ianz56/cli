@@ -237,8 +237,7 @@ const ProviderApple = (() => {
 			if (isInline) {
 				if (combinedText) unsynced.push({ text: combinedText });
 			} else {
-				let valText = mainTextStr;
-				if (bgTextStr) valText += ` (${bgTextStr})`;
+				const valText = combinedText;
 				if (valText) unsynced.push({ text: valText });
 			}
 		});

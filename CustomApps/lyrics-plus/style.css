@@ -153,7 +153,7 @@
 .lyrics-lyricsContainer-UnsyncedLyricsPage .lyrics-lyricsContainer-LyricsLine {
 	color: var(--lyrics-color-inactive);
 	transition: color 0.25s cubic-bezier(0, 0, 0.58, 1);
-	margin-bottom: calc(-0.6em + var(--lyrics-font-size));
+	margin-bottom: calc(-0.7em + var(--lyrics-font-size));
 }
 
 .lyrics-lyricsContainer-UnsyncedLyricsPage .lyrics-lyricsContainer-LyricsLine-active {
@@ -662,6 +662,10 @@ div.lyrics-tabBar-headerItemLink {
 
 .lyrics-idling-indicator-hidden {
 	opacity: 0;
+}
+
+.lyrics-lyricsContainer-LyricsLine-hidden {
+	display: none !important;
 }
 
 .lyrics-idling-indicator__circle {

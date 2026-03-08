@@ -318,7 +318,7 @@ const ProviderIanz56 = (() => {
 
 			return result;
 		} catch (e) {
-			result.error = "Request error or lyrics not found";
+			result.error = e.message || "Request error or lyrics not found";
 			return result;
 		}
 	}

@@ -71,6 +71,11 @@ const CONFIG = {
 		delay: 0,
 	},
 	providers: {
+		ianz56: {
+			on: getConfig("lyrics-plus:provider:ianz56:on"),
+			desc: 'Lyrics sourced from <a href="https://github.com/ianz56">ianz56 repository</a>. Parses JSON formatted lyrics.',
+			modes: [KARAOKE, SYNCED, UNSYNCED],
+		},
 		lrclib: {
 			on: getConfig("lyrics-plus:provider:lrclib:on"),
 			desc: "Lyrics sourced from lrclib.net. Supports both synced and unsynced lyrics. LRCLIB is a free and open-source lyrics provider.",
@@ -102,11 +107,6 @@ const CONFIG = {
 			on: spotifyVersion >= "1.2.31" ? false : getConfig("lyrics-plus:provider:genius:on"),
 			desc: "Provide unsynced lyrics with insights from artists themselves. Genius is disabled and cannot be used as a provider on <code>1.2.31</code> and higher.",
 			modes: [GENIUS],
-		},
-		ianz56: {
-			on: getConfig("lyrics-plus:provider:ianz56:on"),
-			desc: 'Lyrics sourced from <a href="https://github.com/ianz56">ianz56 repository</a>. Parses JSON formatted lyrics.',
-			modes: [KARAOKE, SYNCED, UNSYNCED],
 		},
 		local: {
 			on: getConfig("lyrics-plus:provider:local:on"),
@@ -732,7 +732,7 @@ class LyricsContainer extends react.Component {
 		await this.translator.awaitFinished(language);
 
 		let result;
-		let bgResult;
+		let bgResult = null;
 		try {
 			if (language === "ja") {
 				// Japanese

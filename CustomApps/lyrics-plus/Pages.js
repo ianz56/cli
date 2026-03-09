@@ -63,8 +63,9 @@ const findNextLineStartTime = (lines, fromIndex) => {
 };
 
 const LONG_PAUSE_THRESHOLD = 8000; // 8 seconds
+const KARA_DELAY = 500; // 0.5 seconds
 
-const processPauseLines = (lyrics) => {
+const processPauseLines = (lyrics, isKara) => {
 	if (!lyrics || !lyrics.length) return lyrics;
 	const result = [];
 	for (let i = 0; i < lyrics.length; i++) {
@@ -77,7 +78,10 @@ const processPauseLines = (lyrics) => {
 			if (nextStart != null) {
 				const pauseDuration = nextStart - pauseStart;
 				if (pauseDuration >= LONG_PAUSE_THRESHOLD) {
-					result.push(line);
+					result.push({
+						...line,
+						startTime: line.startTime + (isKara ? KARA_DELAY : 0),
+					});
 				}
 			}
 		} else {
@@ -87,7 +91,7 @@ const processPauseLines = (lyrics) => {
 				if (gap >= LONG_PAUSE_THRESHOLD && !isPauseLine(nextLine.text)) {
 					result.push({
 						text: "♪",
-						startTime: line.endTime,
+						startTime: line.endTime + (isKara ? KARA_DELAY : 0),
 						endTime: nextLine.startTime,
 					});
 				}
@@ -121,7 +125,7 @@ const useTrackPosition = (callback) => {
 };
 
 const KaraokeLine = ({ text, isActive, position, startTime, endTime }) => {
-	if ((endTime != null && position > endTime) || (!isActive && position > startTime)) {
+	if ((endTime != null && position > endTime + KARA_DELAY) || (!isActive && position > startTime)) {
 		return text.map(({ word }, i) => (typeof word === "string" ? word : react.cloneElement(word, { key: i })));
 	}
 
@@ -161,11 +165,11 @@ const SyncedLyricsPage = react.memo(({ lyrics = [], provider, copyright, isKara 
 
 	const lyricWithEmptyLines = useMemo(
 		() =>
-			[emptyLine, emptyLine, ...processPauseLines(lyrics)].map((line, i) => ({
+			[emptyLine, emptyLine, ...processPauseLines(lyrics, isKara)].map((line, i) => ({
 				...line,
 				lineNumber: i,
 			})),
-		[lyrics]
+		[lyrics, isKara]
 	);
 
 	const lyricsId = lyrics[0].text;
@@ -535,7 +539,7 @@ const SyncedExpandedLyricsPage = react.memo(({ lyrics, provider, copyright, isKa
 		}
 	});
 
-	const padded = useMemo(() => [emptyLine, ...processPauseLines(lyrics)], [lyrics]);
+	const padded = useMemo(() => [emptyLine, ...processPauseLines(lyrics, isKara)], [lyrics, isKara]);
 
 	const initialScroll = useRef(false);
 

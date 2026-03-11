@@ -55,7 +55,7 @@ const ProviderIanz56 = (() => {
 		const normalizedTitle = normalize(title);
 
 		// First try exact match
-		let match = index.find((entry) => {
+		const match = index.find((entry) => {
 			const entryArtist = normalize(entry.artist);
 			const entryTitle = normalize(entry.title);
 			return entryArtist === normalizedArtist && entryTitle === normalizedTitle;
@@ -64,7 +64,7 @@ const ProviderIanz56 = (() => {
 		if (match) return match;
 
 		// Try partial match (artist contains or title contains)
-		match = index.find((entry) => {
+		const partialMatches = index.filter((entry) => {
 			if (!normalizedArtist) return false;
 			const entryArtist = normalize(entry.artist);
 			const entryTitle = normalize(entry.title);
@@ -74,10 +74,39 @@ const ProviderIanz56 = (() => {
 				(entryTitle.includes(normalizedTitle) || normalizedTitle.includes(entryTitle))
 			);
 		});
-		if (match) return match;
+
+		if (partialMatches.length > 0) {
+			const scoredMatches = partialMatches.map((entry) => {
+				const entryArtist = normalize(entry.artist);
+				const entryTitle = normalize(entry.title);
+				let score = 0;
+
+				// Artist score
+				if (entryArtist === normalizedArtist) score += 100;
+				else if (entryArtist.startsWith(normalizedArtist) || normalizedArtist.startsWith(entryArtist)) score += 80;
+				else score += 50;
+
+				// Title score
+				if (entryTitle === normalizedTitle) score += 200;
+				else if (entryTitle.startsWith(normalizedTitle)) score += 150;
+				else if (normalizedTitle.startsWith(entryTitle)) {
+					score += 120;
+					score -= Math.abs(normalizedTitle.length - entryTitle.length);
+				} else if (entryTitle.includes(normalizedTitle)) score += 100;
+				else if (normalizedTitle.includes(entryTitle)) {
+					score += 80;
+					score -= Math.abs(normalizedTitle.length - entryTitle.length);
+				}
+
+				return { entry, score };
+			});
+
+			scoredMatches.sort((a, b) => b.score - a.score);
+			return scoredMatches[0].entry;
+		}
 
 		// Try title-only match (for cases where artist field is empty in index)
-		match = index.find((entry) => {
+		const titleOnlyMatches = index.filter((entry) => {
 			const entryArtist = normalize(entry.artist);
 			const entryTitle = normalize(entry.title);
 
@@ -90,7 +119,31 @@ const ProviderIanz56 = (() => {
 			return entryTitle === normalizedTitle && (entryArtist.includes(normalizedArtist) || normalizedArtist.includes(entryArtist));
 		});
 
-		return match;
+		if (titleOnlyMatches.length > 0) {
+			const scoredMatches = titleOnlyMatches.map((entry) => {
+				const entryTitle = normalize(entry.title);
+				let score = 0;
+
+				// Title score
+				if (entryTitle === normalizedTitle) score += 200;
+				else if (entryTitle.startsWith(normalizedTitle)) score += 150;
+				else if (normalizedTitle.startsWith(entryTitle)) {
+					score += 120;
+					score -= Math.abs(normalizedTitle.length - entryTitle.length);
+				} else if (entryTitle.includes(normalizedTitle)) score += 100;
+				else if (normalizedTitle.includes(entryTitle)) {
+					score += 80;
+					score -= Math.abs(normalizedTitle.length - entryTitle.length);
+				}
+
+				return { entry, score };
+			});
+
+			scoredMatches.sort((a, b) => b.score - a.score);
+			return scoredMatches[0].entry;
+		}
+
+		return null;
 	}
 
 	/**
@@ -182,7 +235,7 @@ const ProviderIanz56 = (() => {
 			const mainStart = line.begin;
 			let bgStart = mainStart;
 
-			if (line.backgroundVocal && line.backgroundVocal.words && line.backgroundVocal.words.length > 0) {
+			if (line.backgroundVocal?.words?.length > 0) {
 				bgStart = line.backgroundVocal.words[0].begin;
 			}
 
@@ -259,7 +312,7 @@ const ProviderIanz56 = (() => {
 				if (valText) unsynced.push({ startTime: Math.round(lineStartTime * 1000), text: valText });
 			}
 
-			let translatedText = (line.translation || "").trim();
+			const translatedText = (line.translation || "").trim();
 			if (translatedText) hasTranslation = true;
 
 			ianz56Translation.push({

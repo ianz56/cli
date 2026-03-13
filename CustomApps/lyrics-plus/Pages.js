@@ -66,6 +66,21 @@ const findNextLineStartTime = (lines, fromIndex) => {
 	return null;
 };
 
+const getPauseIndicator = (lyrics, lineNumber, startTime, position, isFocused, isPause) => {
+	if (!isFocused || !isPause) return null;
+
+	const nextStart = findNextLineStartTime(lyrics, lineNumber);
+	const pauseStart = startTime || 0;
+	const pauseDuration = nextStart ? nextStart - pauseStart : 0;
+	const progress = pauseDuration > 0 ? (position - pauseStart) / pauseDuration : 0;
+	const delay = pauseDuration / 3;
+
+	return react.createElement(IdlingIndicator, {
+		progress,
+		delay,
+	});
+};
+
 const LONG_PAUSE_THRESHOLD = 8000; // 8 seconds
 
 const processPauseLines = (lyrics) => {
@@ -199,7 +214,7 @@ const SyncedLyricsPage = react.memo(({ lyrics = [], provider, copyright, isKara 
 	const { activeLines, activeElementIndex } = useMemo(() => {
 		let startIndex = activeLineIndex;
 		let visibleBefore = 0;
-		const targetBefore = CONFIG.visual["lines-before"] + 1;
+		const targetBefore = Number(CONFIG.visual["lines-before"]) + 1;
 		while (startIndex > 0 && visibleBefore < targetBefore) {
 			startIndex--;
 			if (!isPauseLine(lyricWithEmptyLines[startIndex].text)) {
@@ -209,7 +224,7 @@ const SyncedLyricsPage = react.memo(({ lyrics = [], provider, copyright, isKara 
 
 		let endIndex = activeLineIndex;
 		let visibleAfter = 0;
-		const targetAfter = CONFIG.visual["lines-after"] + 1;
+		const targetAfter = Number(CONFIG.visual["lines-after"]) + 1;
 		while (endIndex < lyricWithEmptyLines.length - 1 && visibleAfter < targetAfter) {
 			endIndex++;
 			if (!isPauseLine(lyricWithEmptyLines[endIndex].text)) {
@@ -263,17 +278,7 @@ const SyncedLyricsPage = react.memo(({ lyrics = [], provider, copyright, isKara 
 				const isPause = isPauseLine(text);
 
 				// Calculate indicator state for pause lines
-				let indicatorEl = null;
-				if (isFocusedLine && isPause) {
-					const nextStart = findNextLineStartTime(lyricWithEmptyLines, lineNumber);
-					const pauseStart = startTime || 0;
-					const pauseDuration = nextStart ? nextStart - pauseStart : 0;
-					const progress = pauseDuration > 0 ? (position - pauseStart) / pauseDuration : 0;
-					indicatorEl = react.createElement(IdlingIndicator, {
-						progress,
-						delay: pauseDuration / 3,
-					});
-				}
+				const indicatorEl = getPauseIndicator(lyricWithEmptyLines, lineNumber, startTime, position, isFocusedLine, isPause);
 
 				let className = "lyrics-lyricsContainer-LyricsLine";
 				let ref;
@@ -292,7 +297,8 @@ const SyncedLyricsPage = react.memo(({ lyrics = [], provider, copyright, isKara 
 
 				let animationIndex = adjustedAnimationIndices[i];
 
-				const paddingLine = (animationIndex < 0 && -animationIndex > CONFIG.visual["lines-before"]) || animationIndex > CONFIG.visual["lines-after"];
+				const paddingLine =
+					(animationIndex < 0 && -animationIndex > Number(CONFIG.visual["lines-before"])) || animationIndex > Number(CONFIG.visual["lines-after"]);
 				if (paddingLine) {
 					className += " lyrics-lyricsContainer-LyricsLine-paddingLine";
 				}
@@ -579,7 +585,7 @@ const SyncedExpandedLyricsPage = react.memo(({ lyrics, provider, copyright, isKa
 			});
 			initialScroll.current = false;
 		}
-	}, [activeLineIndex]);
+	}, [activeLineIndex, lyricsId]);
 
 	return react.createElement(
 		"div",
@@ -609,17 +615,7 @@ const SyncedExpandedLyricsPage = react.memo(({ lyrics, provider, copyright, isKa
 			const isPause = isPauseLine(text);
 
 			// Calculate indicator state for pause lines
-			let indicatorEl = null;
-			if (isFocused && isPause) {
-				const nextStart = findNextLineStartTime(padded, i);
-				const pauseStart = startTime || 0;
-				const pauseDuration = nextStart ? nextStart - pauseStart : 0;
-				const progress = pauseDuration > 0 ? (position - pauseStart) / pauseDuration : 0;
-				indicatorEl = react.createElement(IdlingIndicator, {
-					progress,
-					delay: pauseDuration / 3,
-				});
-			}
+			const indicatorEl = getPauseIndicator(padded, i, startTime, position, isFocused, isPause);
 
 			const isPlaying = startTime != null && endTime != null && position >= startTime && position <= endTime;
 			const isPast = (endTime != null && position > endTime) || (!isFocused && startTime != null && position > startTime);

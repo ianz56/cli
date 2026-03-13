@@ -49,8 +49,12 @@ const isPauseLine = (text) => {
 			.trim();
 		return joined === "♪" || joined === "";
 	}
-	const str = typeof text === "object" ? text?.props?.children?.[0] : text;
-	return !str || str.trim() === "♪" || str.trim() === "";
+	let str = typeof text === "object" ? text?.props?.children?.[0] : text;
+	if (typeof str !== "string") {
+		str = String(str || "");
+	}
+	const trimmed = str.trim();
+	return trimmed === "♪" || trimmed === "";
 };
 
 const findNextLineStartTime = (lines, fromIndex) => {
@@ -72,6 +76,11 @@ const processPauseLines = (lyrics) => {
 		const nextLine = lyrics[i + 1];
 
 		if (isPauseLine(line.text)) {
+			// Skip consecutive pause lines to consolidate them into one idling indicator
+			const lastLine = result[result.length - 1];
+			if (lastLine && isPauseLine(lastLine.text)) {
+				continue;
+			}
 			const nextStart = findNextLineStartTime(lyrics, i);
 			const pauseStart = line.startTime || 0;
 			if (nextStart != null) {
@@ -82,12 +91,13 @@ const processPauseLines = (lyrics) => {
 			}
 		} else {
 			result.push(line);
-			if (line.endTime != null && nextLine && nextLine.startTime != null) {
-				const gap = nextLine.startTime - line.endTime;
-				if (gap >= LONG_PAUSE_THRESHOLD && !isPauseLine(nextLine.text)) {
+			const endTime = line.endTime ?? line.startTime;
+			if (endTime != null && nextLine && nextLine.startTime != null) {
+				const gap = nextLine.startTime - endTime;
+				if (gap >= LONG_PAUSE_THRESHOLD && endTime > line.startTime && !isPauseLine(nextLine.text)) {
 					result.push({
 						text: "♪",
-						startTime: line.endTime,
+						startTime: endTime,
 						endTime: nextLine.startTime,
 					});
 				}
@@ -100,10 +110,7 @@ const processPauseLines = (lyrics) => {
 const isRTLText = (str) => /[\u0591-\u07FF\u200F\u202B\u202E\uFB1D-\uFDFD\uFE70-\uFEFC]/.test(str);
 
 const renderPerformer = (performer, previousPerformer, compact) => {
-	if (!CONFIG.visual["show-performers"] || !performer) return null;
-	if (!compact) {
-		if (previousPerformer === performer) return null;
-	}
+	if (!CONFIG.visual["show-performers"] || !performer || (!compact && previousPerformer === performer)) return null;
 	return react.createElement("span", { className: "lyrics-lyricsContainer-Performer" }, performer);
 };
 
@@ -125,11 +132,12 @@ const KaraokeLine = ({ text, isActive, position, startTime, endTime }) => {
 		return text.map(({ word }, i) => (typeof word === "string" ? word : react.cloneElement(word, { key: i })));
 	}
 
+	let accumulatedTime = startTime;
 	return text.map(({ word, time }, i) => {
 		const isRTL = isRTLText(typeof word === "string" ? word : "");
-		const isWordActive = position >= startTime;
-		startTime += time;
-		const isWordComplete = isWordActive && position >= startTime;
+		const isWordActive = position >= accumulatedTime;
+		accumulatedTime += time;
+		const isWordComplete = isWordActive && position >= accumulatedTime;
 		return react.createElement(
 			"span",
 			{
@@ -173,6 +181,16 @@ const SyncedLyricsPage = react.memo(({ lyrics = [], provider, copyright, isKara 
 	let activeLineIndex = 0;
 	for (let i = lyricWithEmptyLines.length - 1; i > 0; i--) {
 		if (position >= lyricWithEmptyLines[i].startTime) {
+			// If this is a pause line and the next one starts at the same time and is NOT a pause line,
+			// prefer the next line (the text).
+			if (
+				isPauseLine(lyricWithEmptyLines[i].text) &&
+				lyricWithEmptyLines[i + 1] &&
+				position >= lyricWithEmptyLines[i + 1].startTime &&
+				!isPauseLine(lyricWithEmptyLines[i + 1].text)
+			) {
+				continue;
+			}
 			activeLineIndex = i;
 			break;
 		}
@@ -507,7 +525,7 @@ function isInViewport(element) {
 }
 
 const SyncedExpandedLyricsPage = react.memo(({ lyrics, provider, copyright, isKara }) => {
-	const [position, setPosition] = useState(0);
+	const [position, setPosition] = useState(() => Spicetify.Player.getProgress() + CONFIG.visual["global-delay"] + CONFIG.visual.delay);
 	const activeLineRef = useRef(null);
 	const pageRef = useRef(null);
 
@@ -519,11 +537,11 @@ const SyncedExpandedLyricsPage = react.memo(({ lyrics, provider, copyright, isKa
 
 	const padded = useMemo(() => [emptyLine, ...processPauseLines(lyrics)], [lyrics]);
 
-	const initialScroll = useRef(false);
+	const initialScroll = useRef(true);
 
 	// Reset scroll state when lyrics change
 	useEffect(() => {
-		initialScroll.current = false;
+		initialScroll.current = true;
 	}, [lyrics]);
 
 	const lyricsId = lyrics[0].text;
@@ -532,19 +550,34 @@ const SyncedExpandedLyricsPage = react.memo(({ lyrics, provider, copyright, isKa
 	for (let i = padded.length - 1; i >= 0; i--) {
 		const line = padded[i];
 		if (position >= line.startTime) {
+			// If this is a pause line and the next one starts at the same time and is NOT a pause line,
+			// prefer the next line (the text).
+			if (isPauseLine(line.text) && padded[i + 1] && position >= padded[i + 1].startTime && !isPauseLine(padded[i + 1].text)) {
+				continue;
+			}
 			activeLineIndex = i;
 			break;
 		}
 	}
 
 	useEffect(() => {
-		if (activeLineRef.current && (!initialScroll.current || isInViewport(activeLineRef.current))) {
+		if (activeLineRef.current && (initialScroll.current || isInViewport(activeLineRef.current))) {
+			// Ignore focus on the first "empty" idling indicator if it's during initial load
+			if (initialScroll.current && activeLineIndex === 0) {
+				const nextStart = findNextLineStartTime(padded, 0);
+				// If the intro is very short (e.g. less than 300ms), don't focus it
+				if (nextStart && nextStart - position < 300) {
+					initialScroll.current = false;
+					return;
+				}
+			}
+
 			activeLineRef.current.scrollIntoView({
-				behavior: "smooth",
+				behavior: initialScroll.current ? "auto" : "smooth",
 				block: "center",
 				inline: "nearest",
 			});
-			initialScroll.current = true;
+			initialScroll.current = false;
 		}
 	}, [activeLineIndex]);
 

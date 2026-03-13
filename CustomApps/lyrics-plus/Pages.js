@@ -96,7 +96,8 @@ const KaraokeLine = ({ text, isActive, position, startTime, endTime }) => {
 };
 
 const SyncedLyricsPage = react.memo(({ lyrics = [], provider, copyright, isKara }) => {
-	const [position, setPosition] = useState(0);
+	const [position, setPosition] = useState(() => Spicetify.Player.getProgress() + CONFIG.visual["global-delay"] + CONFIG.visual.delay);
+	const [offset, setOffset] = useState(0);
 	const activeLineEle = useRef();
 	const lyricContainerEle = useRef();
 
@@ -108,6 +109,8 @@ const SyncedLyricsPage = react.memo(({ lyrics = [], provider, copyright, isKara 
 		}
 	});
 
+	const lyricsId = lyrics?.[0]?.text || "none";
+
 	const lyricWithEmptyLines = useMemo(
 		() =>
 			[emptyLine, emptyLine, ...lyrics].map((line, i) => ({
@@ -117,8 +120,6 @@ const SyncedLyricsPage = react.memo(({ lyrics = [], provider, copyright, isKara 
 		[lyrics]
 	);
 
-	const lyricsId = lyrics[0].text;
-
 	let activeLineIndex = 0;
 	for (let i = lyricWithEmptyLines.length - 1; i > 0; i--) {
 		if (position >= lyricWithEmptyLines[i].startTime) {
@@ -127,17 +128,23 @@ const SyncedLyricsPage = react.memo(({ lyrics = [], provider, copyright, isKara 
 		}
 	}
 
-	const activeLines = useMemo(() => {
-		const startIndex = Math.max(activeLineIndex - 1 - CONFIG.visual["lines-before"], 0);
-		// 3 lines = 1 padding top + 1 padding bottom + 1 active
-		const linesCount = CONFIG.visual["lines-before"] + CONFIG.visual["lines-after"] + 3;
-		return lyricWithEmptyLines.slice(startIndex, startIndex + linesCount);
-	}, [activeLineIndex, lyricWithEmptyLines]);
+	react.useLayoutEffect(() => {
+		const updateOffset = () => {
+			if (activeLineEle.current && lyricContainerEle.current) {
+				const newOffset = lyricContainerEle.current.clientHeight / 2 - (activeLineEle.current.offsetTop + activeLineEle.current.clientHeight / 2);
+				setOffset(newOffset);
+			}
+		};
 
-	let offset = lyricContainerEle.current ? lyricContainerEle.current.clientHeight / 2 : 0;
-	if (activeLineEle.current) {
-		offset += -(activeLineEle.current.offsetTop + activeLineEle.current.clientHeight / 2);
-	}
+		updateOffset();
+		window.addEventListener("resize", updateOffset);
+		return () => window.removeEventListener("resize", updateOffset);
+	}, [activeLineIndex, lyricsId]);
+
+	const activeLines = useMemo(() => {
+		const linesCount = activeLineIndex + CONFIG.visual["lines-after"] + 3;
+		return lyricWithEmptyLines.slice(0, linesCount);
+	}, [activeLineIndex, lyricWithEmptyLines]);
 
 	return react.createElement(
 		"div",
@@ -163,7 +170,7 @@ const SyncedLyricsPage = react.memo(({ lyrics = [], provider, copyright, isKara 
 				}
 
 				let className = "lyrics-lyricsContainer-LyricsLine";
-				const activeElementIndex = Math.min(activeLineIndex, CONFIG.visual["lines-before"] + 1);
+				const activeElementIndex = activeLineIndex;
 				let ref;
 
 				const isFocused = activeElementIndex === i;
@@ -176,12 +183,7 @@ const SyncedLyricsPage = react.memo(({ lyrics = [], provider, copyright, isKara 
 					className += " lyrics-lyricsContainer-LyricsLine-active";
 				}
 
-				let animationIndex;
-				if (activeLineIndex <= CONFIG.visual["lines-before"]) {
-					animationIndex = i - activeLineIndex;
-				} else {
-					animationIndex = i - CONFIG.visual["lines-before"] - 1;
-				}
+				const animationIndex = i - activeLineIndex;
 
 				const paddingLine = (animationIndex < 0 && -animationIndex > CONFIG.visual["lines-before"]) || animationIndex > CONFIG.visual["lines-after"];
 				if (paddingLine) {

@@ -657,15 +657,41 @@ div.lyrics-tabBar-headerItemLink {
 .lyrics-idling-indicator {
 	display: inline-block;
 	opacity: 1;
-	transition: opacity 0.2s cubic-bezier(0, 0, 0.58, 1);
+	transform: scale(1);
+	transition:
+		opacity 0.14s linear,
+		transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .lyrics-idling-indicator-hidden {
 	opacity: 0;
+	transform: scale(0.78);
 }
 
 .lyrics-lyricsContainer-LyricsLine-hidden {
 	display: none !important;
+}
+
+.lyrics-lyricsContainer-LyricsLine.lyrics-lyricsContainer-LyricsLine-pause {
+	overflow: hidden;
+	max-height: calc(12px + var(--lyrics-font-size));
+	transition:
+		max-height 0.2s linear,
+		line-height 0.2s linear,
+		margin-bottom 0.2s linear,
+		opacity 0.14s linear;
+}
+
+.lyrics-lyricsContainer-SyncedLyrics .lyrics-lyricsContainer-LyricsLine.lyrics-lyricsContainer-LyricsLine-pause {
+	max-height: var(--lyrics-line-height);
+}
+
+.lyrics-lyricsContainer-LyricsLine.lyrics-lyricsContainer-LyricsLine-pause.lyrics-lyricsContainer-LyricsLine-pause-inactive {
+	max-height: 0;
+	line-height: 0;
+	margin-bottom: 0 !important;
+	opacity: 0;
+	pointer-events: none;
 }
 
 .lyrics-idling-indicator__circle {

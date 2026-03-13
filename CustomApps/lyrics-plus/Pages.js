@@ -250,14 +250,16 @@ const SyncedLyricsPage = react.memo(({ lyrics = [], provider, copyright, isKara 
 
 				// Calculate indicator state for pause lines
 				let indicatorEl = null;
-				if (isFocusedLine && isPause) {
+				if (isPause) {
 					const nextStart = findNextLineStartTime(lyricWithEmptyLines, lineNumber);
 					const pauseStart = startTime || 0;
 					const pauseDuration = nextStart ? nextStart - pauseStart : 0;
 					const progress = pauseDuration > 0 ? (position - pauseStart) / pauseDuration : 0;
 					indicatorEl = react.createElement(IdlingIndicator, {
+						isActive: isFocusedLine,
 						progress,
 						delay: pauseDuration / 3,
+						style: { transition: "none" },
 					});
 				}
 
@@ -270,10 +272,13 @@ const SyncedLyricsPage = react.memo(({ lyrics = [], provider, copyright, isKara 
 				if (isFocusedLine) {
 					ref = activeLineEle;
 				}
+				if (isPause) {
+					className += " lyrics-lyricsContainer-LyricsLine-pause";
+				}
 				if (isActive) {
 					className += " lyrics-lyricsContainer-LyricsLine-active";
-				} else if (isPause && !indicatorEl) {
-					className += " lyrics-lyricsContainer-LyricsLine-hidden";
+				} else if (isPause) {
+					className += " lyrics-lyricsContainer-LyricsLine-pause-inactive";
 				}
 
 				let animationIndex = adjustedAnimationIndices[i];
@@ -302,6 +307,7 @@ const SyncedLyricsPage = react.memo(({ lyrics = [], provider, copyright, isKara 
 							"--position-index": animationIndex,
 							"--animation-index": (animationIndex < 0 ? 0 : animationIndex) + 1,
 							"--blur-index": Math.abs(animationIndex),
+							...(isPause ? { transition: "none" } : {}),
 						},
 						dir: "auto",
 						ref,
@@ -583,13 +589,16 @@ const SyncedExpandedLyricsPage = react.memo(({ lyrics, provider, copyright, isKa
 		padded.map(({ text, startTime, endTime, originalText, performer, background }, i) => {
 			// Show idling indicator for the initial empty line
 			if (i === 0) {
+				const isInitialActive = activeLineIndex === 0;
 				const nextStart = findNextLineStartTime(padded, 0);
 				return react.createElement(IdlingIndicator, {
 					key: i,
-					isActive: activeLineIndex === 0,
+					isActive: isInitialActive,
 					progress: nextStart ? position / nextStart : 0,
 					delay: nextStart ? nextStart / 3 : 0,
-					className: "lyrics-lyricsContainer-LyricsLine lyrics-lyricsContainer-LyricsLine-active",
+					className: `lyrics-lyricsContainer-LyricsLine lyrics-lyricsContainer-LyricsLine-pause ${
+						isInitialActive ? "lyrics-lyricsContainer-LyricsLine-active" : "lyrics-lyricsContainer-LyricsLine-pause-inactive"
+					}`,
 					style: { "--position-index": 0, "--animation-index": 1 },
 				});
 			}
@@ -599,12 +608,13 @@ const SyncedExpandedLyricsPage = react.memo(({ lyrics, provider, copyright, isKa
 
 			// Calculate indicator state for pause lines
 			let indicatorEl = null;
-			if (isFocused && isPause) {
+			if (isPause) {
 				const nextStart = findNextLineStartTime(padded, i);
 				const pauseStart = startTime || 0;
 				const pauseDuration = nextStart ? nextStart - pauseStart : 0;
 				const progress = pauseDuration > 0 ? (position - pauseStart) / pauseDuration : 0;
 				indicatorEl = react.createElement(IdlingIndicator, {
+					isActive: isFocused,
 					progress,
 					delay: pauseDuration / 3,
 				});
@@ -615,8 +625,11 @@ const SyncedExpandedLyricsPage = react.memo(({ lyrics, provider, copyright, isKa
 			const isActive = isFocused || isPlaying;
 
 			let className = `lyrics-lyricsContainer-LyricsLine${isActive ? " lyrics-lyricsContainer-LyricsLine-active" : ""}${isPast ? " lyrics-lyricsContainer-LyricsLine-past" : ""}`;
-			if (isPause && !indicatorEl) {
-				className += " lyrics-lyricsContainer-LyricsLine-hidden";
+			if (isPause) {
+				className += " lyrics-lyricsContainer-LyricsLine-pause";
+			}
+			if (isPause && !isActive) {
+				className += " lyrics-lyricsContainer-LyricsLine-pause-inactive";
 			}
 
 			const showTranslatedBelow = CONFIG.visual["translate:display-mode"] === "below";

@@ -152,6 +152,7 @@ const KaraokeLine = ({ text, isActive, position, startTime, endTime }) => {
 
 const SyncedLyricsPage = react.memo(({ lyrics = [], provider, copyright, isKara }) => {
 	const [position, setPosition] = useState(0);
+	const [offset, setOffset] = useState(0);
 	const activeLineEle = useRef();
 	const lyricContainerEle = useRef();
 
@@ -183,15 +184,10 @@ const SyncedLyricsPage = react.memo(({ lyrics = [], provider, copyright, isKara 
 	}
 
 	const { activeLines, activeElementIndex } = useMemo(() => {
-		let startIndex = activeLineIndex;
-		let visibleBefore = 0;
-		const targetBefore = CONFIG.visual["lines-before"] + 1;
-		while (startIndex > 0 && visibleBefore < targetBefore) {
-			startIndex--;
-			if (!isPauseLine(lyricWithEmptyLines[startIndex].text)) {
-				visibleBefore++;
-			}
-		}
+		// Never remove lines from the front — always start from index 0.
+		// Removing lines from the front changes every remaining element's offsetTop,
+		// which triggers an --offset recalculation mid-CSS-transition and causes a jump.
+		const startIndex = 0;
 
 		let endIndex = activeLineIndex;
 		let visibleAfter = 0;
@@ -205,14 +201,27 @@ const SyncedLyricsPage = react.memo(({ lyrics = [], provider, copyright, isKara 
 
 		return {
 			activeLines: lyricWithEmptyLines.slice(startIndex, endIndex + 1),
-			activeElementIndex: activeLineIndex - startIndex,
+			activeElementIndex: activeLineIndex,
 		};
-	}, [activeLineIndex, lyricWithEmptyLines, CONFIG.visual["lines-before"], CONFIG.visual["lines-after"]]);
+	}, [activeLineIndex, lyricWithEmptyLines, CONFIG.visual["lines-after"]]);
 
-	let offset = lyricContainerEle.current ? lyricContainerEle.current.clientHeight / 2 : 0;
-	if (activeLineEle.current) {
-		offset += -(activeLineEle.current.offsetTop + activeLineEle.current.clientHeight / 2);
-	}
+	const computeOffsetRef = useRef();
+	computeOffsetRef.current = () => {
+		if (activeLineEle.current && lyricContainerEle.current) {
+			setOffset(lyricContainerEle.current.clientHeight / 2 - (activeLineEle.current.offsetTop + activeLineEle.current.clientHeight / 2));
+		}
+	};
+
+	react.useLayoutEffect(() => {
+		const onResize = () => computeOffsetRef.current();
+		window.addEventListener("resize", onResize);
+		return () => window.removeEventListener("resize", onResize);
+	}, []);
+
+	react.useLayoutEffect(() => {
+		computeOffsetRef.current();
+	}, [activeLineIndex, lyricsId]);
+
 	const adjustedAnimationIndices = [];
 	let currentIndex = 0;
 	for (let j = activeElementIndex; j < activeLines.length; j++) {

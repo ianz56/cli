@@ -156,7 +156,7 @@ const ProviderMusixmatch = (() => {
 					.map((s) => s.trim())
 					.filter(Boolean);
 				for (const sLine of snippetLines) {
-					if (sLine.length < 2 && !/^[\u3131-\uD79D\u4E00-\u9FFF\u3040-\u30FF]/.test(sLine)) continue;
+					if (sLine.length < 2 && !/^[\u3131-\u3163\uAC00-\uD7A3\uA960-\uA97F\uD7B0-\uD7FF\u4E00-\u9FFF\u3040-\u30FF]/.test(sLine)) continue;
 					snippetQueue.push({
 						text: normalizeForMatch(sLine),
 						raw: sLine,

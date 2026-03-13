@@ -73,6 +73,12 @@ const processPauseLines = (lyrics, isKara) => {
 		const nextLine = lyrics[i + 1];
 
 		if (isPauseLine(line.text)) {
+			// Skip consecutive pause lines to consolidate them into one idling indicator
+			const lastLine = result[result.length - 1];
+			if (lastLine && isPauseLine(lastLine.text)) {
+				continue;
+			}
+
 			const nextStart = findNextLineStartTime(lyrics, i);
 			const pauseStart = line.startTime || 0;
 			if (nextStart != null) {

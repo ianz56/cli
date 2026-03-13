@@ -26,13 +26,13 @@ const Providers = {
 		const lines = lyrics.lines;
 		if (lyrics.syncType === "LINE_SYNCED") {
 			result.synced = lines.map((line) => ({
-				startTime: line.startTimeMs,
-				text: line.words,
+				startTime: Number(line.startTimeMs),
+				text: line.words || "♪",
 			}));
 			result.unsynced = result.synced;
 		} else {
 			result.unsynced = lines.map((line) => ({
-				text: line.words,
+				text: line.words || "♪",
 			}));
 		}
 

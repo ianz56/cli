@@ -151,7 +151,7 @@ const KaraokeLine = ({ text, isActive, position, startTime, endTime }) => {
 };
 
 const SyncedLyricsPage = react.memo(({ lyrics = [], provider, copyright, isKara }) => {
-	const [position, setPosition] = useState(0);
+	const [position, setPosition] = useState(() => Spicetify.Player.getProgress() + CONFIG.visual["global-delay"] + CONFIG.visual.delay);
 	const [offset, setOffset] = useState(0);
 	const activeLineEle = useRef();
 	const lyricContainerEle = useRef();
@@ -544,7 +544,7 @@ function isInViewport(element) {
 }
 
 const SyncedExpandedLyricsPage = react.memo(({ lyrics, provider, copyright, isKara }) => {
-	const [position, setPosition] = useState(0);
+	const [position, setPosition] = useState(() => Spicetify.Player.getProgress() + CONFIG.visual["global-delay"] + CONFIG.visual.delay);
 	const activeLineRef = useRef(null);
 	const pageRef = useRef(null);
 
@@ -577,7 +577,7 @@ const SyncedExpandedLyricsPage = react.memo(({ lyrics, provider, copyright, isKa
 	useEffect(() => {
 		if (activeLineRef.current && (!initialScroll.current || isInViewport(activeLineRef.current))) {
 			activeLineRef.current.scrollIntoView({
-				behavior: "smooth",
+				behavior: initialScroll.current ? "smooth" : "auto",
 				block: "center",
 				inline: "nearest",
 			});

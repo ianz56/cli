@@ -305,7 +305,6 @@ class LyricsContainer extends react.Component {
 		const audio = await Spicetify.CosmosAsync.get(
 			`https://spclient.wg.spotify.com/audio-attributes/v1/audio-features/${uri.split(":")[2]}?format=json`
 		);
-
 		let tempo = audio.tempo;
 
 		const MIN_TEMPO = 60;

@@ -106,7 +106,8 @@ const processPauseLines = (lyrics) => {
 			}
 		} else {
 			result.push(line);
-			const endTime = line.endTime ?? line.startTime;
+			const hasLineEndTime = line.endTime != null && line.endTime > line.startTime;
+			const endTime = hasLineEndTime ? line.endTime : null;
 			if (endTime != null && nextLine && nextLine.startTime != null) {
 				const gap = nextLine.startTime - endTime;
 				if (gap >= LONG_PAUSE_THRESHOLD && nextLine.startTime > line.startTime && !isPauseLine(nextLine.text)) {

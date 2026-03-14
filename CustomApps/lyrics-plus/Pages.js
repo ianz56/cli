@@ -109,7 +109,7 @@ const processPauseLines = (lyrics) => {
 			const endTime = line.endTime ?? line.startTime;
 			if (endTime != null && nextLine && nextLine.startTime != null) {
 				const gap = nextLine.startTime - endTime;
-				if (gap >= LONG_PAUSE_THRESHOLD && endTime > line.startTime && !isPauseLine(nextLine.text)) {
+				if (gap >= LONG_PAUSE_THRESHOLD && nextLine.startTime > line.startTime && !isPauseLine(nextLine.text)) {
 					result.push({
 						text: "♪",
 						startTime: endTime,

@@ -72,8 +72,13 @@ const RefreshTokenButton = ({ setTokenCallback }) => {
 
 	useEffect(() => {
 		if (buttonText === "Refreshing token...") {
-			Spicetify.CosmosAsync.get("https://apic-desktop.musixmatch.com/ws/1.1/token.get?app_id=web-desktop-app-v1.0", null, {
-				authority: "apic-desktop.musixmatch.com",
+			Spicetify.CosmosAsync.get("https://apic-appmobile.musixmatch.com/ws/1.1/token.get?app_id=mac-ios-v2.0", null, {
+				authority: "apic-appmobile.musixmatch.com",
+				"x-mxm-app-version": "10.1.1",
+				"User-Agent": "Musixmatch/2025120901 CFNetwork/3860.300.31 Darwin/25.2.0",
+				"Accept-Language": "en-US,en;q=0.9",
+				Connection: "keep-alive",
+				Accept: "application/json",
 			})
 				.then(({ message: response }) => {
 					if (response.header.status_code === 200 && response.body.user_token) {
@@ -613,6 +618,12 @@ function openConfig() {
 					type: ConfigSlider,
 				},
 				{
+					desc: "Synced: Inline background vocals",
+					// info: "Show background vocals inline with parentheses instead of on a separate line.",
+					key: "synced-background-inline",
+					type: ConfigSlider,
+				},
+				{
 					desc: "Noise overlay",
 					key: "noise",
 					type: ConfigSlider,
@@ -679,6 +690,10 @@ function openConfig() {
 				CONFIG.visual[name] = value;
 				localStorage.setItem(`${APP_NAME}:visual:${name}`, value);
 				lyricContainerUpdate?.();
+
+				if (name === "synced-background-inline") {
+					reloadLyrics?.();
+				}
 
 				const configChange = new CustomEvent("lyrics-plus", {
 					detail: {

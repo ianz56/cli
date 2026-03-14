@@ -1,8 +1,16 @@
 const ProviderMusixmatch = (() => {
 	const headers = {
-		authority: "apic-desktop.musixmatch.com",
-		cookie: "x-mxm-token-guid=",
+		Host: "apic-appmobile.musixmatch.com",
+		// authority: "apic-appmobile.musixmatch.com",
+		// cookie: "x-mxm-token-guid=",
+		"x-mxm-app-version": "10.1.1",
+		"User-Agent": "Musixmatch/2025120901 CFNetwork/3860.300.31 Darwin/25.2.0",
+		"Accept-Language": "en-US,en;q=0.9",
+		Connection: "keep-alive",
+		Accept: "application/json",
 	};
+
+	const normalizeForMatch = (text) => text.replace(/\s+/g, "").toLowerCase();
 
 	function findTranslationStatus(body) {
 		if (!body || typeof body !== "object") {
@@ -36,7 +44,7 @@ const ProviderMusixmatch = (() => {
 
 	async function findLyrics(info) {
 		const baseURL =
-			"https://apic-desktop.musixmatch.com/ws/1.1/macro.subtitles.get?format=json&namespace=lyrics_richsynched&subtitle_format=mxm&app_id=web-desktop-app-v1.0&";
+			"https://apic-appmobile.musixmatch.com/ws/1.1/macro.subtitles.get?format=json&namespace=lyrics_richsynched&subtitle_format=mxm&app_id=mac-ios-v2.0&";
 
 		const durr = info.duration / 1000;
 
@@ -98,12 +106,12 @@ const ProviderMusixmatch = (() => {
 
 		const tagging = meta.track.performer_tagging;
 		const miscTags = meta.track.performer_tagging_misc_tags || {};
-		let performerMap = [];
+		let performerEntries = [];
 		if (tagging && tagging.content && tagging.content.length > 0) {
 			const resources = tagging.resources?.artists || [];
 			const resourcesList = Array.isArray(resources) ? resources : Object.values(resources);
 
-			performerMap = tagging.content
+			performerEntries = tagging.content
 				.map((c) => {
 					if (!c.performers || c.performers.length === 0) return null;
 
@@ -112,7 +120,7 @@ const ProviderMusixmatch = (() => {
 							let name = "Unknown";
 							if (p.type === "artist") {
 								const fqid = p.fqid;
-								const idFromFqid = fqid ? parseInt(fqid.split(":")[2]) : null;
+								const idFromFqid = fqid ? parseInt(fqid.split(":")[2], 10) : null;
 
 								const artist = resourcesList.find((r) => r.artist_id === idFromFqid);
 								if (artist) name = artist.artist_name;
@@ -121,7 +129,7 @@ const ProviderMusixmatch = (() => {
 							}
 							return {
 								fqid: p.fqid,
-								artist_id: p.fqid ? parseInt(p.fqid.split(":")[2]) : null,
+								artist_id: p.fqid ? parseInt(p.fqid.split(":")[2], 10) : null,
 								name: name,
 							};
 						})
@@ -139,18 +147,16 @@ const ProviderMusixmatch = (() => {
 				.filter(Boolean);
 		}
 
-		const normalizeForMatch = (text) => text.replace(/\s+/g, "").toLowerCase();
-
 		const snippetQueue = [];
-		if (performerMap.length > 0) {
-			for (const tag of performerMap) {
+		if (performerEntries.length > 0) {
+			for (const tag of performerEntries) {
 				if (!tag.snippet) continue;
 				const snippetLines = tag.snippet
 					.split(/\n+/)
 					.map((s) => s.trim())
 					.filter(Boolean);
 				for (const sLine of snippetLines) {
-					if (sLine.length < 2 && !/^[\u3131-\uD79D]/.test(sLine)) continue;
+					if (sLine.length < 2 && !/^[\u3131-\u3163\uAC00-\uD7A3\uA960-\uA97F\uD7B0-\uD7FF\u4E00-\u9FFF\u3040-\u30FF]/.test(sLine)) continue;
 					snippetQueue.push({
 						text: normalizeForMatch(sLine),
 						raw: sLine,
@@ -165,7 +171,6 @@ const ProviderMusixmatch = (() => {
 	function matchSequential(lyricsLines, snippetQueue, getTextCallback = (l) => l.text) {
 		if (!snippetQueue || snippetQueue.length === 0) return lyricsLines;
 
-		const normalizeForMatch = (text) => text.replace(/\s+/g, "").toLowerCase();
 		let queueCursor = 0;
 		const LOOKAHEAD = 5;
 
@@ -173,7 +178,7 @@ const ProviderMusixmatch = (() => {
 			const lineText = getTextCallback(line) || "♪";
 			let normalizedLine = normalizeForMatch(lineText);
 
-			let matchedPerformers = [];
+			const matchedPerformers = [];
 
 			while (queueCursor < snippetQueue.length) {
 				let matchFoundAtOffset = -1;
@@ -225,7 +230,7 @@ const ProviderMusixmatch = (() => {
 			return null;
 		}
 
-		const baseURL = "https://apic-desktop.musixmatch.com/ws/1.1/track.richsync.get?format=json&subtitle_format=mxm&app_id=web-desktop-app-v1.0&";
+		const baseURL = "https://apic-appmobile.musixmatch.com/ws/1.1/track.richsync.get?format=json&subtitle_format=mxm&app_id=mac-ios-v2.0&";
 
 		const params = {
 			f_subtitle_length: meta.track.track_length,
@@ -376,7 +381,7 @@ const ProviderMusixmatch = (() => {
 		if (selectedLanguage === "none") return null;
 
 		const baseURL =
-			"https://apic-desktop.musixmatch.com/ws/1.1/crowd.track.translations.get?translation_fields_set=minimal&comment_format=text&format=json&app_id=web-desktop-app-v1.0&";
+			"https://apic-appmobile.musixmatch.com/ws/1.1/crowd.track.translations.get?translation_fields_set=minimal&comment_format=text&format=json&app_id=mac-ios-v2.0&";
 
 		const params = {
 			track_id: trackId,
@@ -423,7 +428,7 @@ const ProviderMusixmatch = (() => {
 			console.warn("Failed to parse cached languages", e);
 		}
 
-		const baseURL = "https://apic-desktop.musixmatch.com/ws/1.1/languages.get?app_id=web-desktop-app-v1.0&get_romanized_info=1&";
+		const baseURL = "https://apic-appmobile.musixmatch.com/ws/1.1/languages.get?app_id=mac-ios-v2.0&get_romanized_info=1&";
 
 		const params = {
 			usertoken: CONFIG.providers.musixmatch.token,
@@ -436,7 +441,7 @@ const ProviderMusixmatch = (() => {
 				.join("&");
 
 		try {
-			let body = await Spicetify.CosmosAsync.get(finalURL, null, headers);
+			const body = await Spicetify.CosmosAsync.get(finalURL, null, headers);
 			if (body?.message?.body?.language_list) {
 				languageMap = {};
 				body.message.body.language_list.forEach((item) => {

@@ -65,11 +65,17 @@ const CONFIG = {
 		"fullscreen-key": localStorage.getItem("lyrics-plus:visual:fullscreen-key") || "f12",
 		"show-performers": getConfig("lyrics-plus:visual:show-performers", true),
 		"synced-compact": getConfig("lyrics-plus:visual:synced-compact"),
+		"synced-background-inline": getConfig("lyrics-plus:visual:synced-background-inline", true),
 		"dual-genius": getConfig("lyrics-plus:visual:dual-genius"),
 		"global-delay": Number(localStorage.getItem("lyrics-plus:visual:global-delay")) || 0,
 		delay: 0,
 	},
 	providers: {
+		ianz56: {
+			on: getConfig("lyrics-plus:provider:ianz56:on"),
+			desc: 'Lyrics sourced from <a href="https://github.com/ianz56">ianz56 repository</a>. Parses JSON formatted lyrics.',
+			modes: [KARAOKE, SYNCED, UNSYNCED],
+		},
 		lrclib: {
 			on: getConfig("lyrics-plus:provider:lrclib:on"),
 			desc: "Lyrics sourced from lrclib.net. Supports both synced and unsynced lyrics. LRCLIB is a free and open-source lyrics provider.",
@@ -79,6 +85,12 @@ const CONFIG = {
 			on: getConfig("lyrics-plus:provider:musixmatch:on"),
 			desc: "Fully compatible with Spotify. Requires a token that can be retrieved from the official Musixmatch app. If you have problems with retrieving lyrics, try refreshing the token by clicking <code>Refresh Token</code> button. You may need to be forced to use your own CORS Proxy to use this provider.",
 			token: localStorage.getItem("lyrics-plus:provider:musixmatch:token") || "21051986b9886beabe1ce01c3ce94c96319411f8f2c122676365e3",
+			modes: [KARAOKE, SYNCED, UNSYNCED],
+		},
+		apple: {
+			on: getConfig("lyrics-plus:provider:apple:on"),
+			desc: "Lyrics sourced from Apple Music via Paxsenix API. Supports syllable karaoke, synced, and unsynced lyrics. You can put your own <code>Paxsenix API key</code> to use this provider or leave blank to use the default API key. Go to <code>https://api.paxsenix.org</code> to get your personal API key.",
+			token: localStorage.getItem("lyrics-plus:provider:apple:token") || "",
 			modes: [KARAOKE, SYNCED, UNSYNCED],
 		},
 		spotify: {
@@ -164,6 +176,7 @@ const emptyState = {
 	musixmatchAvailableTranslations: null,
 	musixmatchTrackId: null,
 	musixmatchTranslationLanguage: null,
+	ianz56Translation: null,
 };
 
 let lyricContainerUpdate;
@@ -211,6 +224,7 @@ class LyricsContainer extends react.Component {
 			musixmatchAvailableTranslations: [],
 			musixmatchTrackId: null,
 			neteaseTranslation: null,
+			ianz56Translation: null,
 			uri: "",
 			provider: "",
 			colors: {
@@ -613,6 +627,7 @@ class LyricsContainer extends react.Component {
 					hk: null,
 					tw: null,
 					neteaseTranslation: null,
+					ianz56Translation: null,
 					...tempState,
 					...translationOverrides,
 					language: defaultLanguage,
@@ -719,6 +734,7 @@ class LyricsContainer extends react.Component {
 		await this.translator.awaitFinished(language);
 
 		let result;
+		let bgResult = null;
 		try {
 			if (language === "ja") {
 				// Japanese
@@ -732,9 +748,23 @@ class LyricsContainer extends react.Component {
 				result = await Promise.all(
 					lyrics.map(async (lyric) => await this.translator.romajifyText(lyric.text, map[targetConvert].target, map[targetConvert].mode))
 				);
+				bgResult = await Promise.all(
+					lyrics.map(async (lyric) => {
+						if (!lyric.background || !lyric.background.length) return null;
+						const bgText = lyric.background.map((w) => w.word).join("");
+						return await this.translator.romajifyText(bgText, map[targetConvert].target, map[targetConvert].mode);
+					})
+				);
 			} else if (language === "ko") {
 				// Korean
 				result = await Promise.all(lyrics.map(async (lyric) => await this.translator.convertToRomaja(lyric.text, "romaji")));
+				bgResult = await Promise.all(
+					lyrics.map(async (lyric) => {
+						if (!lyric.background || !lyric.background.length) return null;
+						const bgText = lyric.background.map((w) => w.word).join("");
+						return await this.translator.convertToRomaja(bgText, "romaji");
+					})
+				);
 			} else if (language === "zh-hans") {
 				// Chinese (Simplified)
 				const map = {
@@ -751,6 +781,13 @@ class LyricsContainer extends react.Component {
 
 				result = await Promise.all(
 					lyrics.map(async (lyric) => await this.translator.convertChinese(lyric.text, map[targetConvert].from, map[targetConvert].target))
+				);
+				bgResult = await Promise.all(
+					lyrics.map(async (lyric) => {
+						if (!lyric.background || !lyric.background.length) return null;
+						const bgText = lyric.background.map((w) => w.word).join("");
+						return await this.translator.convertChinese(bgText, map[targetConvert].from, map[targetConvert].target);
+					})
 				);
 			} else if (language === "zh-hant") {
 				// Chinese (Traditional)
@@ -769,9 +806,16 @@ class LyricsContainer extends react.Component {
 				result = await Promise.all(
 					lyrics.map(async (lyric) => await this.translator.convertChinese(lyric.text, map[targetConvert].from, map[targetConvert].target))
 				);
+				bgResult = await Promise.all(
+					lyrics.map(async (lyric) => {
+						if (!lyric.background || !lyric.background.length) return null;
+						const bgText = lyric.background.map((w) => w.word).join("");
+						return await this.translator.convertChinese(bgText, map[targetConvert].from, map[targetConvert].target);
+					})
+				);
 			}
 
-			const res = Utils.processTranslatedLyrics(result, lyrics);
+			const res = Utils.processTranslatedLyrics(result, lyrics, bgResult);
 			Spicetify.showNotification("Converting...", false, 0);
 			return res;
 		} catch (error) {
@@ -1067,7 +1111,11 @@ class LyricsContainer extends react.Component {
 		const lang = this.provideLanguageCode(this.state.currentLyrics);
 		const friendlyLanguage = lang && new Intl.DisplayNames(["en"], { type: "language" }).of(lang.split("-")[0])?.toLowerCase();
 		const hasMusixmatchLanguages = Array.isArray(this.state.musixmatchAvailableTranslations) && this.state.musixmatchAvailableTranslations.length > 0;
-		const hasTranslation = this.state.neteaseTranslation !== null || this.state.musixmatchTranslation !== null || hasMusixmatchLanguages;
+		const hasTranslation =
+			this.state.neteaseTranslation !== null ||
+			this.state.musixmatchTranslation !== null ||
+			hasMusixmatchLanguages ||
+			this.state.ianz56Translation !== null;
 		const hasPerformer = !!this.state.currentLyrics?.some((line) => line.performer);
 
 		if (mode !== -1) {
@@ -1160,6 +1208,7 @@ class LyricsContainer extends react.Component {
 						hasTranslation: {
 							musixmatch: this.state.musixmatchTranslation !== null,
 							netease: this.state.neteaseTranslation !== null,
+							ianz56: this.state.ianz56Translation !== null,
 						},
 						musixmatchLanguages: this.state.musixmatchAvailableTranslations || [],
 						musixmatchSelectedLanguage: this.state.musixmatchTranslationLanguage || CONFIG.visual["musixmatch-translation-language"],

@@ -189,11 +189,13 @@ const SyncedLyricsPage = react.memo(({ lyrics = [], provider, copyright, isKara 
 		}
 	}
 
-	const { activeLines, activeElementIndex } = useMemo(() => {
-		// Never remove lines from the front — always start from index 0.
-		// Removing lines from the front changes every remaining element's offsetTop,
-		// which triggers an --offset recalculation mid-CSS-transition and causes a jump.
-		const startIndex = 0;
+	const { activeLines, startLineIndex, activeElementIndex } = useMemo(() => {
+		// Keep a bounded window of lines around the active line.
+		// A spacer element at the top of the list compensates for the height of
+		// lines removed from the front, keeping the active line's offsetTop stable
+		// so --offset does not jump mid-CSS-transition.
+		const windowBefore = CONFIG.visual["lines-before"] + 2;
+		const startIndex = Math.max(0, activeLineIndex - windowBefore);
 
 		let endIndex = activeLineIndex;
 		let visibleAfter = 0;
@@ -207,9 +209,12 @@ const SyncedLyricsPage = react.memo(({ lyrics = [], provider, copyright, isKara 
 
 		return {
 			activeLines: lyricWithEmptyLines.slice(startIndex, endIndex + 1),
-			activeElementIndex: activeLineIndex,
+			startLineIndex: startIndex,
+			activeElementIndex: activeLineIndex - startIndex,
 		};
-	}, [activeLineIndex, lyricWithEmptyLines, CONFIG.visual["lines-after"]]);
+	}, [activeLineIndex, lyricWithEmptyLines, CONFIG.visual["lines-after"], CONFIG.visual["lines-before"]]);
+
+	const spacerRef = useRef();
 
 	const computeOffsetRef = useRef();
 	computeOffsetRef.current = () => {
@@ -218,13 +223,27 @@ const SyncedLyricsPage = react.memo(({ lyrics = [], provider, copyright, isKara 
 		}
 	};
 
+	// Always reflects the latest startLineIndex via closure (updated every render).
+	const updateSpacerRef = useRef();
+	updateSpacerRef.current = () => {
+		if (!spacerRef.current || !lyricContainerEle.current) return;
+		const lyricsLineHeight = parseFloat(getComputedStyle(lyricContainerEle.current).getPropertyValue("--lyrics-line-height"));
+		spacerRef.current.style.height = startLineIndex > 0 && lyricsLineHeight > 0 ? `${startLineIndex * lyricsLineHeight}px` : "0px";
+	};
+
 	react.useLayoutEffect(() => {
-		const onResize = () => computeOffsetRef.current();
+		const onResize = () => {
+			updateSpacerRef.current();
+			computeOffsetRef.current();
+		};
 		window.addEventListener("resize", onResize);
 		return () => window.removeEventListener("resize", onResize);
 	}, []);
 
 	react.useLayoutEffect(() => {
+		// Update the spacer first so that offsetTop of the active line is stable
+		// before we read it for the --offset calculation.
+		updateSpacerRef.current();
 		computeOffsetRef.current();
 	}, [activeLineIndex, lyricsId]);
 
@@ -259,6 +278,7 @@ const SyncedLyricsPage = react.memo(({ lyrics = [], provider, copyright, isKara 
 				},
 				key: lyricsId,
 			},
+			react.createElement("div", { ref: spacerRef, style: { height: "0px" }, "aria-hidden": "true" }),
 			activeLines.map(({ text, lineNumber, startTime, endTime, originalText, performer, background }, i) => {
 				const isFocusedLine = activeElementIndex === i;
 				const isPause = isPauseLine(text);

@@ -26,13 +26,13 @@ const Providers = {
 		const lines = lyrics.lines;
 		if (lyrics.syncType === "LINE_SYNCED") {
 			result.synced = lines.map((line) => ({
-				startTime: line.startTimeMs,
-				text: line.words,
+				startTime: Number(line.startTimeMs),
+				text: line.words || "♪",
 			}));
 			result.unsynced = result.synced;
 		} else {
 			result.unsynced = lines.map((line) => ({
-				text: line.words,
+				text: line.words || "♪",
 			}));
 		}
 
@@ -220,6 +220,68 @@ const Providers = {
 			genius2,
 			versionIndex2,
 		};
+	},
+	apple: async (info) => {
+		const result = {
+			uri: info.uri,
+			karaoke: null,
+			synced: null,
+			unsynced: null,
+			provider: "Apple Music (Paxsenix)",
+			copyright: null,
+		};
+
+		let list;
+		try {
+			list = await ProviderApple.findLyrics(info, CONFIG);
+		} catch {
+			result.error = "No lyrics";
+			return result;
+		}
+
+		if (list.error) {
+			result.error = list.error;
+			return result;
+		}
+
+		result.karaoke = list.karaoke;
+		result.synced = list.synced;
+		result.unsynced = list.unsynced;
+		result.copyright = list.copyright;
+
+		return result;
+	},
+	ianz56: async (info) => {
+		const result = {
+			uri: info.uri,
+			karaoke: null,
+			synced: null,
+			unsynced: null,
+			ianz56Translation: null,
+			provider: "ianz56",
+			copyright: null,
+		};
+
+		let list;
+		try {
+			list = await ProviderIanz56.findLyrics(info);
+		} catch {
+			result.error = "No lyrics";
+			return result;
+		}
+
+		if (list.error) {
+			result.error = list.error;
+			return result;
+		}
+
+		result.karaoke = list.karaoke;
+		result.synced = list.synced;
+		result.unsynced = list.unsynced;
+		result.copyright = list.copyright;
+		result.ianz56Translation = list.ianz56Translation;
+
+		return result;
 	},
 	local: (info) => {
 		let result = {

@@ -369,6 +369,8 @@ class LyricsContainer extends react.Component {
 
 		const currentLanguage = selectedLanguage;
 
+		console.log(`[lyrics-plus] fetch translation start for trackId ${trackId} language ${selectedLanguage}`);
+
 		Spicetify.showNotification(MUSIXMATCH_TRANSLATION_FETCH_MESSAGE, false, 1000);
 
 		this.setState({
@@ -393,6 +395,7 @@ class LyricsContainer extends react.Component {
 		}
 
 		if (!translation) {
+			console.log(`[lyrics-plus] fetch finish: no translation found`);
 			if (isLatestRequest()) {
 				Spicetify.showNotification(MUSIXMATCH_TRANSLATION_FETCH_FAILED_MESSAGE, true, 3000);
 				if (CACHE[currentUri]) {
@@ -420,6 +423,7 @@ class LyricsContainer extends react.Component {
 			return;
 		}
 
+		console.log(`[lyrics-plus] mapping translations...`);
 		const mappedTranslation = latestBaseLyrics.map((line) => {
 			const originalText = line.originalText ?? line.text;
 			const matched = translation.find((entry) => Utils.processLyrics(entry.matchedLine) === Utils.processLyrics(originalText));
@@ -444,6 +448,7 @@ class LyricsContainer extends react.Component {
 			CACHE[currentUri].musixmatchTranslation = mappedTranslation;
 			CACHE[currentUri].musixmatchTranslationLanguage = currentLanguage;
 		}
+		console.log(`[lyrics-plus] fetch finish: translation mapped successfully`);
 		finishRequest();
 	}
 
@@ -490,7 +495,12 @@ class LyricsContainer extends react.Component {
 				finalData.copyright = `${styledMode} lyrics provided by ${data.provider}\n${finalData.copyright || ""}`.trim();
 			}
 
-			if (finalData.musixmatchTranslation && typeof finalData.musixmatchTranslation[0].startTime === "undefined" && finalData.synced) {
+			if (
+				finalData.musixmatchTranslation &&
+				Array.isArray(finalData.musixmatchTranslation) &&
+				typeof finalData.musixmatchTranslation[0]?.startTime === "undefined" &&
+				finalData.synced
+			) {
 				finalData.musixmatchTranslation = finalData.synced.map((line) => ({
 					...line,
 					text:
@@ -603,6 +613,8 @@ class LyricsContainer extends react.Component {
 				CONFIG.visual["translate:detect-language-override"] !== "off" ? CONFIG.visual["translate:detect-language-override"] : defaultLanguage;
 			const friendlyLanguage = language && new Intl.DisplayNames(["en"], { type: "language" }).of(language.split("-")[0])?.toLowerCase();
 			const targetConvert = CONFIG.visual[`translation-mode:${friendlyLanguage}`];
+
+			console.log(`[lyrics-plus] mode-change checking translation for lang: ${language}`, { friendlyLanguage, targetConvert });
 
 			const isMemorey = CACHE[tempState.uri]?.[targetConvert];
 			if (CONFIG.visual.translate && defaultLanguage && !isMemorey) {
@@ -1119,13 +1131,35 @@ class LyricsContainer extends react.Component {
 		const hasPerformer = !!this.state.currentLyrics?.some((line) => line.performer);
 
 		if (mode !== -1) {
-			showTranslationButton = (friendlyLanguage || hasTranslation) && (mode === SYNCED || mode === UNSYNCED);
+			showTranslationButton = (friendlyLanguage || hasTranslation) && (mode === SYNCED || mode === UNSYNCED || mode === KARAOKE);
 
 			if (mode === KARAOKE && this.state.karaoke) {
+				// Merge translation into karaoke lines at render time
+				let karaLyrics = this.state.karaoke;
+				const translationArr = this.state.currentLyrics;
+				if (translationArr && Array.isArray(translationArr) && translationArr !== this.state.karaoke) {
+					karaLyrics = this.state.karaoke.map((line, idx) => {
+						// Try index-based match first (most reliable), then closest startTime
+						let matched = translationArr[idx];
+						if (!matched || (matched.startTime != null && Math.abs(matched.startTime - line.startTime) > 2000)) {
+							matched = translationArr.reduce((best, t) => {
+								if (t.startTime == null) return best;
+								const diff = Math.abs(t.startTime - line.startTime);
+								return diff < (best._diff ?? Infinity) ? { ...t, _diff: diff } : best;
+							}, {});
+							if (matched._diff == null || matched._diff > 2000) matched = null;
+						}
+						if (matched && matched.originalText && matched.text !== matched.originalText) {
+							return { ...line, originalText: line.text, text: matched.text };
+						}
+						return line;
+					});
+					console.log(`[lyrics-plus] render decision: merged ${karaLyrics.filter((l) => l.originalText).length} translated lines into karaoke`);
+				}
 				activeItem = react.createElement(CONFIG.visual["synced-compact"] ? SyncedLyricsPage : SyncedExpandedLyricsPage, {
 					isKara: true,
 					trackUri: this.state.uri,
-					lyrics: this.state.karaoke,
+					lyrics: karaLyrics,
 					provider: this.state.provider,
 					copyright: this.state.copyright,
 					reRenderLyricsPage: this.reRenderLyricsPage,
@@ -1180,7 +1214,11 @@ class LyricsContainer extends react.Component {
 			);
 		}
 
-		this.state.mode = mode;
+		if (this.state.mode !== mode) {
+			console.log(`[lyrics-plus] mode-change to ${mode}`);
+			Utils.triggerOptionsMenuUpdate(mode);
+			this.state.mode = mode;
+		}
 
 		const out = react.createElement(
 			"div",
@@ -1204,6 +1242,7 @@ class LyricsContainer extends react.Component {
 				},
 				showTranslationButton &&
 					react.createElement(TranslationMenu, {
+						mode,
 						friendlyLanguage,
 						hasTranslation: {
 							musixmatch: this.state.musixmatchTranslation !== null,

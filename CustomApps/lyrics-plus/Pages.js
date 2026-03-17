@@ -322,7 +322,7 @@ const SyncedLyricsPage = react.memo(({ lyrics = [], provider, copyright, isKara 
 				if (paddingLine) {
 					className += " lyrics-lyricsContainer-LyricsLine-paddingLine";
 				}
-				const showTranslatedBelow = CONFIG.visual["translate:display-mode"] === "below";
+				const showTranslatedBelow = isKara || CONFIG.visual["translate:display-mode"] === "below";
 				// If we have original text and we are showing translated below, we should show the original text
 				// Otherwise we should show the translated text
 				const lineText = originalText && showTranslatedBelow ? originalText : text;
@@ -366,7 +366,7 @@ const SyncedLyricsPage = react.memo(({ lyrics = [], provider, copyright, isKara 
 									},
 								},
 								renderPerformer(performer, lyricWithEmptyLines[lineNumber - 1]?.performer, CONFIG.visual["synced-compact"]),
-								!isKara ? lineText : react.createElement(KaraokeLine, { text, startTime, endTime, position, isActive }),
+								!isKara ? lineText : react.createElement(KaraokeLine, { text: originalText ?? text, startTime, endTime, position, isActive }),
 								background &&
 									background.length > 0 &&
 									react.createElement(
@@ -667,7 +667,7 @@ const SyncedExpandedLyricsPage = react.memo(({ lyrics, provider, copyright, isKa
 				className += " lyrics-lyricsContainer-LyricsLine-pause-inactive";
 			}
 
-			const showTranslatedBelow = CONFIG.visual["translate:display-mode"] === "below";
+			const showTranslatedBelow = isKara || CONFIG.visual["translate:display-mode"] === "below";
 			// If we have original text and we are showing translated below, we should show the original text
 			// Otherwise we should show the translated text
 			const lineText = originalText && showTranslatedBelow ? originalText : text;
@@ -710,7 +710,7 @@ const SyncedExpandedLyricsPage = react.memo(({ lyrics, provider, copyright, isKa
 									},
 								},
 								renderPerformer(performer, padded[i - 1]?.performer, CONFIG.visual["synced-compact"]),
-								!isKara ? lineText : react.createElement(KaraokeLine, { text, startTime, endTime, position, isActive })
+								!isKara ? lineText : react.createElement(KaraokeLine, { text: originalText ?? text, startTime, endTime, position, isActive })
 							),
 							background &&
 								background.length > 0 &&

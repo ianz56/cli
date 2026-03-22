@@ -342,12 +342,12 @@
 		const uri = uris[0];
 		const uriObj = Spicetify.URI.fromString(uri);
 		if (uriObj.type === Spicetify.URI.Type.TRACK) {
-			this.name = trashSongList[uri] ? UNTHROW_TEXT : THROW_TEXT;
+			cntxMenu.name = trashSongList[uri] ? UNTHROW_TEXT : THROW_TEXT;
 			return true;
 		}
 
 		if (uriObj.type === Spicetify.URI.Type.ARTIST) {
-			this.name = trashArtistList[uri] ? UNTHROW_TEXT : THROW_TEXT;
+			cntxMenu.name = trashArtistList[uri] ? UNTHROW_TEXT : THROW_TEXT;
 			return true;
 		}
 

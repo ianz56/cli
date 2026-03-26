@@ -37,7 +37,12 @@ func EnableDevTools() {
 				homePath = flatpakHome
 				filePath = homePath + "/cache/spotify/offline.bnk"
 			} else {
-				filePath = homePath + "/.cache/spotify/offline.bnk"
+				cacheHome := os.Getenv("XDG_CACHE_HOME")
+				if cacheHome == "" {
+					cacheHome = homePath + "/.cache"
+				}
+
+				filePath = cacheHome + "/spotify/offline.bnk"
 			}
 
 		}

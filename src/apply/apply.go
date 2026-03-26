@@ -263,11 +263,12 @@ func insertCustomApp(jsPath string, flags Flag) {
 		// React lazy loading patterns for dynamic imports
 		reactPatterns := []string{
 			// Sync pattern: X.lazy((() => Y.Z(123).then(W.bind(W, 456))))
-			`([\w_\$][\w_\$\d]*(?:\(\))?)\.lazy\(\((?:\(\)=>|function\(\)\{return )(\w+)\.(\w+)\(\d+\)\.then\(\w+\.bind\(\w+,\d+\)\)\}?\)\)`,
+			`([\w_\$][\w_\$\d]*(?:\(\))?)\.lazy\(\((?:\(\)=>|function\(\)\{return )(\w+)\.(\w+)\(["']?[\w-]+["']?\)\.then\(\w+\.bind\(\w+,["']?[\w-]+["']?\)\)\}?\)\)`,
 			// Async pattern (1.2.78+): m.lazy(async()=>{...await o.e(123).then(...)})
-			`([\w_\$][\w_\$\d]*)\.lazy\(async\(\)=>\{(?:[^{}]|\{[^{}]*\})*await\s+(\w+)\.(\w+)\(\d+\)\.then\(\w+\.bind\(\w+,\d+\)\)`,
-			// Async Promise.all pattern (1.2.78+): m.lazy(async()=>await Promise.all([...]).then(...))
-			`([\w_\$][\w_\$\d]*(?:\(\))?)\.lazy\(async\(\)=>await\s+Promise\.all\(\[[^\]]+\]\)\.then\((\w+)\.bind\((\w+),\d+\)\)`,
+			`([\w_\$][\w_\$\d]*)\.lazy\(async\(\)=>\{(?:[^{}]|\{[^{}]*\})*await\s+(\w+)\.(\w+)\(["']?[\w-]+["']?\)\.then\(\w+\.bind\(\w+,["']?[\w-]+["']?\)\)`,
+			// Async Promise.all pattern (1.2.78+): m.lazy(async()=>await Promise.all([Y.Z(123),...]).then(...))
+			// Capture the chunk loader from the first entry inside Promise.all, not from .bind()
+			`([\w_\$][\w_\$\d]*(?:\(\))?)\.lazy\(async\(\)=>await\s+Promise\.all\(\[(\w+)\.(\w+)\(["']?[\w-]+["']?\)`,
 		}
 
 		// React element/route patterns for path matching

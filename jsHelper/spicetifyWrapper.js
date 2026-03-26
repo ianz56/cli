@@ -580,16 +580,20 @@ const fnStr = (f) => {
 	const exportedMemos = exportedReactObjects[Symbol.for("react.memo")];
 	const exportedForwardRefs = exportedReactObjects[Symbol.for("react.forward_ref")];
 	const exportedMemoFRefs = exportedMemos.filter((m) => m.type.$$typeof === Symbol.for("react.forward_ref"));
-	const exposeReactComponentsUI = ({ modules, functionModules, exportedForwardRefs }) => {
-		const componentNames = Object.keys(modules.filter(Boolean).find((e) => e.BrowserDefaultFocusStyleProvider));
-		const componentRegexes = componentNames.map((n) => new RegExp(`"data-encore-id":(?:[a-zA-Z_$][w$]*\\.){2}${n}\\b`));
-		const componentPairs = [functionModules.map((f) => [f, f]), exportedForwardRefs.map((f) => [f.render, f])]
+	const exposeReactComponentsUI = ({ modules, functionModules, exportedForwardRefs, exportedMemoFRefs }) => {
+		const componentNames = Object.keys(modules.filter(Boolean).find((e) => typeof e.BrowserDefaultFocusStyleProvider === "string"));
+		const componentRegexes = componentNames.map((n) => new RegExp(`"data-encore-id":(?:[a-zA-Z_$][\\w$]*\\.){2}${n}\\b`));
+		const componentPairs = [
+			functionModules.map((f) => [f, f]),
+			exportedForwardRefs.map((f) => [f.render, f]),
+			exportedMemoFRefs.map((f) => [f.type.render, f]),
+		]
 			.flat()
 			.map(([s, f]) => [componentNames.find((_, i) => fnStr(s)?.match(componentRegexes[i])), f]);
 
 		return Object.fromEntries(componentPairs);
 	};
-	const reactComponentsUI = exposeReactComponentsUI({ modules, functionModules, exportedForwardRefs });
+	const reactComponentsUI = exposeReactComponentsUI({ modules, functionModules, exportedForwardRefs, exportedMemoFRefs });
 
 	const knownMenuTypes = ["album", "show", "artist", "track", "playlist"];
 	const menus = modules
@@ -615,6 +619,11 @@ const fnStr = (f) => {
 			return [type, module];
 		})
 		.filter(Boolean);
+
+	const menuOverrides = [
+		["PlaylistMenu", exportedMemos?.find((m) => fnStr(m.type).includes("labelPlacement") && fnStr(m.type).includes("menuPlacement"))],
+		["TrackMenu", exportedMemos?.find((m) => fnStr(m.type).includes("canSwitchVisuals") && fnStr(m.type).includes("showCanvasAction"))],
+	].filter(([, v]) => v !== undefined);
 
 	const cardTypesToFind = ["album", "artist", "audiobook", "episode", "playlist", "profile", "show", "track"];
 	const cards = [
@@ -1041,7 +1050,25 @@ body[data-dragging-uri-type] .spicetify-sc-chevronBtn { pointer-events: none; }`
 			StoreProvider: functionModules.find((m) => fnStr(m).includes("notifyNestedSubs") && fnStr(m).includes("serverState")),
 			ScrollableContainer: _ScrollableContainer,
 			IconComponent: reactComponentsUI.Icon,
+			Navigation: (() => {
+				// Spotify >= 1.2.86
+				try {
+					const navModuleEntry = Object.entries(require.m).find(([, v]) => fnStr(v).includes("navigationalRoot") && fnStr(v).includes("noLink"));
+					if (navModuleEntry) {
+						const Logo = require(navModuleEntry[0])?.A;
+						if (typeof Logo === "function") {
+							const element = Logo({ customLink: "/", noLink: false, hasText: false });
+							if (element?.type) return element.type;
+						}
+					}
+					// <= Spotify 1.2.85
+					return exportedMemoFRefs.find((m) => fnStr(m.type?.render).includes("navigationalRoot"));
+				} catch {
+					return undefined;
+				}
+			})(),
 			...Object.fromEntries(menus),
+			...Object.fromEntries(menuOverrides),
 		},
 		ReactHook: {
 			DragHandler: functionModules.find((m) => fnStr(m).includes("dataTransfer") && fnStr(m).includes("data-dragging")),
@@ -1078,21 +1105,12 @@ body[data-dragging-uri-type] .spicetify-sc-chevronBtn { pointer-events: none; }`
 	});
 
 	if (!Spicetify.ContextMenuV2._context) Spicetify.ContextMenuV2._context = Spicetify.React.createContext({});
-	if (!Spicetify.ReactComponent.Navigation)
-		Spicetify.ReactComponent.Navigation = exportedMemoFRefs.find((m) => fnStr(m.type.render).includes("navigationalRoot"));
 
 	(function waitForChunks() {
-		const listOfComponents = [
-			"Slider",
-			"Dropdown",
-			"Toggle",
-			// "Cards.Artist",
-			// "Cards.Audiobook",
-			// "Cards.Profile",
-			// "Cards.Show",
-			// "Cards.Track",
-		];
+		const listOfComponents = ["Slider", "Dropdown", "Toggle", "Cards.Artist", "Cards.Audiobook", "Cards.Profile", "Cards.Show", "Cards.Track"];
 		if (listOfComponents.every((component) => component.split(".").reduce((o, k) => o?.[k], Spicetify.ReactComponent) !== undefined)) return;
+		const currentChunks = Object.entries(require.m);
+
 		const cache = Object.keys(require.m).map((id) => require(id));
 		const modules = cache
 			.filter((module) => typeof module === "object")
@@ -1108,45 +1126,49 @@ body[data-dragging-uri-type] .spicetify-sc-chevronBtn { pointer-events: none; }`
 					? Object.values(module).filter((v) => typeof v === "function" && !webpackFactories.has(v))
 					: []
 		);
-		const exportedMemos = modules.filter((m) => m?.$$typeof === Symbol.for("react.memo"));
-		const cardTypesToFind = ["artist", "audiobook", "profile", "show", "track"];
-		// const cards = [
-		// 	...functionModules
-		// 		.flatMap((m) => {
-		// 			return cardTypesToFind.map((type) => {
-		// 				if (m.toString().includes(`featureIdentifier:"${type}"`)) {
-		// 					cardTypesToFind.splice(cardTypesToFind.indexOf(type), 1);
-		// 					return [type[0].toUpperCase() + type.slice(1), m];
-		// 				}
-		// 			});
-		// 		})
-		// 		.filter(Boolean),
-		// 	...modules
-		// 		.flatMap((m) => {
-		// 			return cardTypesToFind.map((type) => {
-		// 				try {
-		// 					if (m?.type?.toString().includes(`featureIdentifier:"${type}"`)) {
-		// 						cardTypesToFind.splice(cardTypesToFind.indexOf(type), 1);
-		// 						return [type[0].toUpperCase() + type.slice(1), m];
-		// 					}
-		// 				} catch {}
-		// 			});
-		// 		})
-		// 		.filter(Boolean),
-		// ];
+
+		const cardTypesToFind = ["audiobook", "profile", "show"];
+		const lazyCards = [
+			...functionModules
+				.flatMap((m) => {
+					return cardTypesToFind.map((type) => {
+						if (fnStr(m).includes(`featureIdentifier:"${type}"`)) {
+							cardTypesToFind.splice(cardTypesToFind.indexOf(type), 1);
+							return [type[0].toUpperCase() + type.slice(1), m];
+						}
+					});
+				})
+				.filter(Boolean),
+			...modules
+				.flatMap((m) => {
+					return cardTypesToFind.map((type) => {
+						try {
+							if ((m?.type ? fnStr(m.type) : "").includes(`featureIdentifier:"${type}"`)) {
+								cardTypesToFind.splice(cardTypesToFind.indexOf(type), 1);
+								return [type[0].toUpperCase() + type.slice(1), m];
+							}
+						} catch {}
+					});
+				})
+				.filter(Boolean),
+		];
+		Object.assign(Spicetify.ReactComponent.Cards, Object.fromEntries(lazyCards));
 
 		Spicetify.ReactComponent.Slider = wrapProvider(functionModules.find((m) => fnStr(m).includes("progressBarRef")));
 		Spicetify.ReactComponent.Toggle = functionModules.find((m) => fnStr(m).includes("onSelected") && fnStr(m).includes('type:"checkbox"'));
-		// Object.assign(Spicetify.ReactComponent.Cards, Object.fromEntries(cards));
 
 		// chunks
-		const dropdownChunk = chunks.find(([, value]) => fnStr(value).includes("dropDown") && fnStr(value).includes("isSafari"));
+		const dropdownChunk = currentChunks.find(([, value]) => fnStr(value).includes("dropdown-list") && fnStr(value).includes('"listbox"'));
 		if (dropdownChunk) {
 			Spicetify.ReactComponent.Dropdown =
-				Object.values(require(dropdownChunk[0]))?.[0]?.render ?? Object.values(require(dropdownChunk[0])).find((m) => typeof m === "function");
+				Object.values(require(dropdownChunk[0])).find(
+					(m) => m?.$$typeof === Symbol.for("react.forward_ref") && fnStr(m.render).includes("dropdown-list")
+				) ??
+				Object.values(require(dropdownChunk[0]))?.[0]?.render ??
+				Object.values(require(dropdownChunk[0])).find((m) => typeof m === "function");
 		}
 
-		const toggleChunk = chunks.find(([, value]) => fnStr(value).includes("onSelected") && fnStr(value).includes('type:"checkbox"'));
+		const toggleChunk = currentChunks.find(([, value]) => fnStr(value).includes("onSelected") && fnStr(value).includes('type:"checkbox"'));
 		if (toggleChunk && !Spicetify.ReactComponent.Toggle) {
 			Spicetify.ReactComponent.Toggle = Object.values(require(toggleChunk[0]))[0].render;
 		}
@@ -1300,21 +1322,10 @@ body[data-dragging-uri-type] .spicetify-sc-chevronBtn { pointer-events: none; }`
 			setTimeout(bindColorExtractor, 10);
 			return;
 		}
-		let imageAnalysis = functionModules.find((m) => m.toString().match(/![\w$]+\.isFallback|\{extractColor/g));
+		const imageAnalysis = functionModules.find(
+			(m) => fnStr(m).match(/![\w$]+\.isFallback|\{extractColor/g) || (fnStr(m).includes("extractedColors") && fnStr(m).includes("imageUris"))
+		);
 		const fallbackPreset = modules.find((m) => m?.colorDark);
-
-		// Search chunk in Spotify 1.2.13 or much older because it is impossible to find any distinguishing features
-		if (!imageAnalysis) {
-			let chunk = chunks.find(
-				([, value]) =>
-					(value.toString().match(/[\w$]+\.isFallback/g) || value.toString().includes("colorRaw:")) && value.toString().match(/.extractColor/g)
-			);
-			if (!chunk) {
-				await new Promise((resolve) => setTimeout(resolve, 100));
-				chunk = chunks.find(([, value]) => value.toString().match(/[\w$]+\.isFallback/g) && value.toString().match(/.extractColor/g));
-			}
-			imageAnalysis = Object.values(require(chunk[0])).find((m) => typeof m === "function");
-		}
 
 		Spicetify.extractColorPreset = async (image) => {
 			const analysis = await imageAnalysis(Spicetify.GraphQL.Request, image);

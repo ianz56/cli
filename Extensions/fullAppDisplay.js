@@ -459,12 +459,26 @@ body.video-full-screen.video-full-screen--hide-ui {
 		}
 
 		async getAlbumDate(uri) {
-			const id = uri.replace("spotify:album:", "");
+			const { getAlbum } = Spicetify.GraphQL.Definitions;
+			const { errors, data } = await Spicetify.GraphQL.Request(getAlbum, {
+				uri,
+				locale: Spicetify.Locale.getLocale(),
+				offset: 0,
+				limit: 10,
+			});
 
-			const albumInfo = await Spicetify.CosmosAsync.get(`https://api.spotify.com/v1/albums/${id}`);
+			if (errors) return null;
 
-			const albumDate = new Date(albumInfo.release_date);
-			return albumDate.toLocaleString("default", {
+			const albumDate = data.albumUnion.date;
+
+			// Avoid false release date (e.g., Jan 1, XXXX)
+			if (albumDate.precision === "YEAR") {
+				return albumDate.isoString.split("-")[0];
+			}
+
+			const date = new Date(albumDate.isoString);
+
+			return date.toLocaleDateString("default", {
 				year: "numeric",
 				month: "short",
 				day: "numeric",

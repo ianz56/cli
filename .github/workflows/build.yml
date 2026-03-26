@@ -138,6 +138,7 @@ jobs:
     name: Trigger Homebrew/AUR Release
     runs-on: ubuntu-latest
     needs: release
+    if: github.event.release.prerelease == false
     steps:
       - name: Update AUR package
         uses: fjogeleit/http-request-action@master

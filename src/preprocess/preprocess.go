@@ -104,6 +104,14 @@ func Start(version string, spotifyBasePath string, extractedAppsPath string, fla
 		readLocalCssMap(&cssTranslationMap)
 	}
 
+	cssMapPairs := make([]string, 0, len(cssTranslationMap)*4)
+	for k, v := range cssTranslationMap {
+		cssMapPairs = append(cssMapPairs, k+":", `"`+v+`":`)
+		cssMapPairs = append(cssMapPairs, k, v)
+	}
+	cssMapJSReplacer := strings.NewReplacer(cssMapPairs...)
+	cssMapBareKeySpaceRe := regexp.MustCompile(`\b[a-zA-Z0-9_]{16,21}[ \t]+:`)
+
 	verParts := strings.Split(flags.SpotifyVer, ".")
 	spotifyMajor, spotifyMinor, spotifyPatch := 0, 0, 0
 	if len(verParts) > 0 {
@@ -259,16 +267,19 @@ func Start(version string, spotifyBasePath string, extractedAppsPath string, fla
 					})
 				}
 
-				for k, v := range cssTranslationMap {
-					// Object keys
-					utils.Replace(&content, `(`+k+`)(\s*:)`, func(submatches ...string) string {
-						return `"` + v + `"` + submatches[2]
-					})
-					// Remaining occurrences (inside string literals etc.)
-					utils.Replace(&content, k, func(submatches ...string) string {
-						return v
-					})
-				}
+				// Bare keys with whitespace before the colon (e.g. `{ key : val }`) —
+				// the replacer's k+":" entry can't match these, so handle them first.
+				content = cssMapBareKeySpaceRe.ReplaceAllStringFunc(content, func(match string) string {
+					colonIdx := strings.LastIndex(match, ":")
+					key := strings.TrimRight(match[:colonIdx], " \t")
+					if v, ok := cssTranslationMap[key]; ok {
+						return `"` + v + `":`
+					}
+					return match
+				})
+				// Single O(n) Aho-Corasick pass: k+":" → "v": for bare keys,
+				// k → v for all other occurrences (inside strings etc.)
+				content = cssMapJSReplacer.Replace(content)
 				content = colorVariableReplaceForJS(content)
 
 				return content

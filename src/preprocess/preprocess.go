@@ -104,13 +104,6 @@ func Start(version string, spotifyBasePath string, extractedAppsPath string, fla
 		readLocalCssMap(&cssTranslationMap)
 	}
 
-	cssMapPairs := make([]string, 0, len(cssTranslationMap)*2)
-	for k, v := range cssTranslationMap {
-		cssMapPairs = append(cssMapPairs, k, v)
-	}
-	cssMapJSReplacer := strings.NewReplacer(cssMapPairs...)
-	cssMapJSStringRe := regexp.MustCompile(`"[^"]*"|'[^']*'|` + "`[^`]*`" + `|\b[a-zA-Z0-9_]{16,21}\s*:`)
-
 	verParts := strings.Split(flags.SpotifyVer, ".")
 	spotifyMajor, spotifyMinor, spotifyPatch := 0, 0, 0
 	if len(verParts) > 0 {
@@ -266,19 +259,16 @@ func Start(version string, spotifyBasePath string, extractedAppsPath string, fla
 					})
 				}
 
-				content = cssMapJSStringRe.ReplaceAllStringFunc(content, func(match string) string {
-					first := match[0]
-					if first == '"' || first == '\'' || first == '`' {
-						inner := match[1 : len(match)-1]
-						return string(first) + cssMapJSReplacer.Replace(inner) + string(first)
-					}
-					colonIdx := strings.LastIndex(match, ":")
-					key := strings.TrimSpace(match[:colonIdx])
-					if replaced, ok := cssTranslationMap[key]; ok {
-						return `"` + replaced + `"` + match[colonIdx:]
-					}
-					return match
-				})
+				for k, v := range cssTranslationMap {
+					// Object keys
+					utils.Replace(&content, `(`+k+`)(\s*:)`, func(submatches ...string) string {
+						return `"` + v + `"` + submatches[2]
+					})
+					// Remaining occurrences (inside string literals etc.)
+					utils.Replace(&content, k, func(submatches ...string) string {
+						return v
+					})
+				}
 				content = colorVariableReplaceForJS(content)
 
 				return content

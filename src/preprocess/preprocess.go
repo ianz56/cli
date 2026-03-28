@@ -267,8 +267,8 @@ func Start(version string, spotifyBasePath string, extractedAppsPath string, fla
 					})
 				}
 
-				// Bare keys with whitespace before the colon (e.g. `{ key : val }`) —
-				// the replacer's k+":" entry can't match these, so handle them first.
+				// Bare keys with whitespace before the colon
+				// the replacer's k+":" entry can't match these, so handle them first
 				content = cssMapBareKeySpaceRe.ReplaceAllStringFunc(content, func(match string) string {
 					colonIdx := strings.LastIndex(match, ":")
 					key := strings.TrimRight(match[:colonIdx], " \t")
@@ -277,8 +277,8 @@ func Start(version string, spotifyBasePath string, extractedAppsPath string, fla
 					}
 					return match
 				})
-				// Single O(n) Aho-Corasick pass: k+":" → "v": for bare keys,
-				// k → v for all other occurrences (inside strings etc.)
+				// Single pass: k+":" → "v": for bare keys,
+				// k -> v for all other occurrences
 				content = cssMapJSReplacer.Replace(content)
 				content = colorVariableReplaceForJS(content)
 

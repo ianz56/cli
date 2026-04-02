@@ -94,8 +94,21 @@ function getMusixmatchTranslationPrefix() {
 	return "musixmatchTranslation:";
 }
 
-const TranslationMenu = react.memo(({ friendlyLanguage, hasTranslation, musixmatchLanguages, musixmatchSelectedLanguage }) => {
+const TranslationMenu = react.memo(({ mode, friendlyLanguage, hasTranslation, musixmatchLanguages, musixmatchSelectedLanguage }) => {
 	const musixmatchTranslationPrefix = getMusixmatchTranslationPrefix();
+
+	const [localMode, setLocalMode] = react.useState(mode);
+
+	react.useEffect(() => {
+		const unregister = Utils.registerOptionsMenuTrigger((newMode) => {
+			setLocalMode(newMode);
+		});
+		return unregister;
+	}, []);
+
+	react.useEffect(() => {
+		setLocalMode(mode);
+	}, [mode]);
 
 	const [languageMap, setLanguageMap] = react.useState({});
 
@@ -120,15 +133,12 @@ const TranslationMenu = react.memo(({ friendlyLanguage, hasTranslation, musixmat
 		};
 	}, []);
 
-	const items = useMemo(() => {
+	const items = react.useMemo(() => {
 		let sourceOptions = {
 			none: "None",
 		};
 
-		const translationDisplayOptions = {
-			replace: "Replace original",
-			below: "Below original",
-		};
+		const translationDisplayOptions = Utils.getTranslationDisplayOptions(localMode);
 
 		const languageOptions = {
 			off: "Off",
@@ -271,9 +281,10 @@ const TranslationMenu = react.memo(({ friendlyLanguage, hasTranslation, musixmat
 		musixmatchSelectedLanguage || "",
 		musixmatchTranslationPrefix,
 		languageMap,
+		localMode,
 	]);
 
-	useEffect(() => {
+	react.useEffect(() => {
 		// Currently opened Context Menu does not receive prop changes
 		// If we were to use keys the Context Menu would close on re-render
 		const event = new CustomEvent("lyrics-plus", {

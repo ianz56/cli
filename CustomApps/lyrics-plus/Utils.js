@@ -344,4 +344,30 @@ const Utils = {
 			.replace(/　| /g, "") // Remove space
 			.replace(/[!"#$%&'()*+,-./:;<=>?@[\]^_`{|}~？！，。、《》【】「」]/g, ""); // Remove punctuation
 	},
+	isKaraMode(mode) {
+		return mode === 0; // KARAOKE mode is 0
+	},
+	getTranslationDisplayOptions(mode) {
+		let options;
+		if (this.isKaraMode(mode)) {
+			options = { below: "Below original" };
+		} else {
+			options = {
+				replace: "Replace original",
+				below: "Below original",
+			};
+		}
+		console.log(`[lyrics-plus] options builder returned for mode ${mode}:`, options);
+		return options;
+	},
+	_optionsMenuTriggerCbs: [],
+	registerOptionsMenuTrigger(callback) {
+		this._optionsMenuTriggerCbs.push(callback);
+		return () => {
+			this._optionsMenuTriggerCbs = this._optionsMenuTriggerCbs.filter((cb) => cb !== callback);
+		};
+	},
+	triggerOptionsMenuUpdate(mode) {
+		this._optionsMenuTriggerCbs.forEach((cb) => cb(mode));
+	},
 };

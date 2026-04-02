@@ -106,6 +106,10 @@ const TranslationMenu = react.memo(({ mode, friendlyLanguage, hasTranslation, mu
 		return unregister;
 	}, []);
 
+	react.useEffect(() => {
+		setLocalMode(mode);
+	}, [mode]);
+
 	const [languageMap, setLanguageMap] = react.useState({});
 
 	react.useEffect(() => {
@@ -129,7 +133,7 @@ const TranslationMenu = react.memo(({ mode, friendlyLanguage, hasTranslation, mu
 		};
 	}, []);
 
-	const items = useMemo(() => {
+	const items = react.useMemo(() => {
 		let sourceOptions = {
 			none: "None",
 		};
@@ -277,9 +281,10 @@ const TranslationMenu = react.memo(({ mode, friendlyLanguage, hasTranslation, mu
 		musixmatchSelectedLanguage || "",
 		musixmatchTranslationPrefix,
 		languageMap,
+		localMode,
 	]);
 
-	useEffect(() => {
+	react.useEffect(() => {
 		// Currently opened Context Menu does not receive prop changes
 		// If we were to use keys the Context Menu would close on re-render
 		const event = new CustomEvent("lyrics-plus", {

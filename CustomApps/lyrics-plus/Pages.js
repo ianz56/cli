@@ -184,7 +184,7 @@ const SyncedLyricsPage = react.memo(({ lyrics = [], provider, copyright, isKara 
 		[lyrics, isKara]
 	);
 
-	const lyricsId = lyrics[0].text;
+	const lyricsId = lyrics && lyrics.length > 0 ? lyrics[0].text : "";
 
 	let activeLineIndex = 0;
 	for (let i = lyricWithEmptyLines.length - 1; i > 0; i--) {
@@ -604,7 +604,7 @@ const SyncedExpandedLyricsPage = react.memo(({ lyrics, provider, copyright, isKa
 		initialScroll.current = false;
 	}, [lyrics]);
 
-	const lyricsId = lyrics[0].text;
+	const lyricsId = lyrics && lyrics.length > 0 ? lyrics[0].text : "";
 
 	let activeLineIndex = 0;
 	for (let i = padded.length - 1; i >= 0; i--) {

@@ -93,13 +93,15 @@ const processPauseLines = (lyrics, isKara) => {
 				}
 			}
 		} else {
-			result.push(line);
-			if (line.endTime != null && nextLine && nextLine.startTime != null) {
-				const gap = nextLine.startTime - line.endTime;
+			const effectiveEnd = line.endTime != null ? line.endTime : nextLine?.startTime;
+			result.push({ ...line, endTime: effectiveEnd });
+
+			if (effectiveEnd != null && nextLine && nextLine.startTime != null) {
+				const gap = nextLine.startTime - effectiveEnd;
 				if (gap >= LONG_PAUSE_THRESHOLD && !isPauseLine(nextLine)) {
 					result.push({
 						text: "♪",
-						startTime: line.endTime + (isKara ? KARA_DELAY : 0),
+						startTime: effectiveEnd + (isKara ? KARA_DELAY : 0),
 						endTime: nextLine.startTime,
 					});
 				}

@@ -143,7 +143,8 @@ const Utils = {
 			// If background was converted, replace with converted text
 			if (bgResult?.[index]) {
 				const convertedBgText = typeof bgResult[index] === "string" ? this.rubyTextToReact(bgResult[index]) : bgResult[index];
-				line.background = [{ word: convertedBgText, time: 0, isBackground: true }];
+				const backgroundDuration = Array.isArray(lyric.background) ? lyric.background.reduce((total, part) => total + (part.time || 0), 0) : 0;
+				line.background = [{ word: convertedBgText, time: backgroundDuration, isBackground: true }];
 			}
 			return line;
 		});

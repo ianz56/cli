@@ -40,7 +40,9 @@ const emptyLine = {
 	text: [],
 };
 
-const isPauseLine = (text) => {
+const isPauseLine = (line) => {
+	const text = line?.text;
+	if (line?.background && line.background.length > 0) return false;
 	if (!text) return true;
 	if (Array.isArray(text)) {
 		const joined = text
@@ -55,7 +57,7 @@ const isPauseLine = (text) => {
 
 const findNextLineStartTime = (lines, fromIndex) => {
 	for (let j = fromIndex + 1; j < lines.length; j++) {
-		if (!isPauseLine(lines[j].text) && lines[j].startTime != null) {
+		if (!isPauseLine(lines[j]) && lines[j].startTime != null) {
 			return lines[j].startTime;
 		}
 	}
@@ -72,10 +74,10 @@ const processPauseLines = (lyrics, isKara) => {
 		const line = lyrics[i];
 		const nextLine = lyrics[i + 1];
 
-		if (isPauseLine(line.text)) {
+		if (isPauseLine(line)) {
 			// Skip consecutive pause lines to consolidate them into one idling indicator
 			const lastLine = result[result.length - 1];
-			if (lastLine && isPauseLine(lastLine.text)) {
+			if (lastLine && isPauseLine(lastLine)) {
 				continue;
 			}
 
@@ -94,7 +96,7 @@ const processPauseLines = (lyrics, isKara) => {
 			result.push(line);
 			if (line.endTime != null && nextLine && nextLine.startTime != null) {
 				const gap = nextLine.startTime - line.endTime;
-				if (gap >= LONG_PAUSE_THRESHOLD && !isPauseLine(nextLine.text)) {
+				if (gap >= LONG_PAUSE_THRESHOLD && !isPauseLine(nextLine)) {
 					result.push({
 						text: "♪",
 						startTime: line.endTime + (isKara ? KARA_DELAY : 0),
@@ -202,7 +204,7 @@ const SyncedLyricsPage = react.memo(({ lyrics = [], provider, copyright, isKara 
 		const targetAfter = CONFIG.visual["lines-after"] + 1;
 		while (endIndex < lyricWithEmptyLines.length - 1 && visibleAfter < targetAfter) {
 			endIndex++;
-			if (!isPauseLine(lyricWithEmptyLines[endIndex].text)) {
+			if (!isPauseLine(lyricWithEmptyLines[endIndex])) {
 				visibleAfter++;
 			}
 		}
@@ -251,14 +253,14 @@ const SyncedLyricsPage = react.memo(({ lyrics = [], provider, copyright, isKara 
 	let currentIndex = 0;
 	for (let j = activeElementIndex; j < activeLines.length; j++) {
 		adjustedAnimationIndices[j] = currentIndex;
-		if (!isPauseLine(activeLines[j].text) || j === activeElementIndex) {
+		if (!isPauseLine(activeLines[j]) || j === activeElementIndex) {
 			currentIndex++;
 		}
 	}
 	currentIndex = -1;
 	for (let j = activeElementIndex - 1; j >= 0; j--) {
 		adjustedAnimationIndices[j] = currentIndex;
-		if (!isPauseLine(activeLines[j].text)) {
+		if (!isPauseLine(activeLines[j])) {
 			currentIndex--;
 		}
 	}
@@ -281,7 +283,7 @@ const SyncedLyricsPage = react.memo(({ lyrics = [], provider, copyright, isKara 
 			react.createElement("div", { ref: spacerRef, style: { height: "0px" }, "aria-hidden": "true" }),
 			activeLines.map(({ text, lineNumber, startTime, endTime, originalText, performer, background }, i) => {
 				const isFocusedLine = activeElementIndex === i;
-				const isPause = isPauseLine(text);
+				const isPause = isPauseLine(activeLines[i]);
 
 				// Calculate indicator state for pause lines
 				let indicatorEl = null;
@@ -639,7 +641,7 @@ const SyncedExpandedLyricsPage = react.memo(({ lyrics, provider, copyright, isKa
 			}
 
 			const isFocused = i === activeLineIndex;
-			const isPause = isPauseLine(text);
+			const isPause = isPauseLine(padded[i]);
 
 			// Calculate indicator state for pause lines
 			let indicatorEl = null;

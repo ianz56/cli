@@ -126,12 +126,16 @@ const useTrackPosition = (callback) => {
 	callbackRef.current = callback;
 
 	useEffect(() => {
-		const interval = setInterval(callbackRef.current, 50);
+		const interval = setInterval(() => {
+			if (callbackRef.current) {
+				callbackRef.current();
+			}
+		}, 50);
 
 		return () => {
 			clearInterval(interval);
 		};
-	}, [callbackRef]);
+	}, []);
 };
 
 const KaraokeLine = ({ text, isActive, position, startTime, endTime }) => {
@@ -170,7 +174,7 @@ const SyncedLyricsPage = react.memo(({ lyrics = [], provider, copyright, isKara 
 	useTrackPosition(() => {
 		const newPos = Spicetify.Player.getProgress();
 		const delay = CONFIG.visual["global-delay"] + CONFIG.visual.delay;
-		if (newPos !== position) {
+		if (Math.abs(newPos + delay - position) > 20) {
 			setPosition(newPos + delay);
 		}
 	});
@@ -590,8 +594,10 @@ const SyncedExpandedLyricsPage = react.memo(({ lyrics, provider, copyright, isKa
 	const pageRef = useRef(null);
 
 	useTrackPosition(() => {
-		if (!Spicetify.Player.data.is_paused) {
-			setPosition(Spicetify.Player.getProgress() + CONFIG.visual["global-delay"] + CONFIG.visual.delay);
+		const newPos = Spicetify.Player.getProgress();
+		const delay = CONFIG.visual["global-delay"] + CONFIG.visual.delay;
+		if (Math.abs(newPos + delay - position) > 20) {
+			setPosition(newPos + delay);
 		}
 	});
 

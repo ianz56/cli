@@ -1210,6 +1210,15 @@ class LyricsContainer extends react.Component {
 
 		this._resolvedMode = mode;
 
+		const translationStatus = react.useMemo(
+			() => ({
+				musixmatch: this.state.musixmatchTranslation !== null,
+				netease: this.state.neteaseTranslation !== null,
+				ianz56: this.state.ianz56Translation !== null,
+			}),
+			[this.state.musixmatchTranslation, this.state.neteaseTranslation, this.state.ianz56Translation]
+		);
+
 		const out = react.createElement(
 			"div",
 			{
@@ -1234,11 +1243,7 @@ class LyricsContainer extends react.Component {
 					react.createElement(TranslationMenu, {
 						mode,
 						friendlyLanguage,
-						hasTranslation: {
-							musixmatch: this.state.musixmatchTranslation !== null,
-							netease: this.state.neteaseTranslation !== null,
-							ianz56: this.state.ianz56Translation !== null,
-						},
+						hasTranslation: translationStatus,
 						musixmatchLanguages: this.state.musixmatchAvailableTranslations || [],
 						musixmatchSelectedLanguage: this.state.musixmatchTranslationLanguage || CONFIG.visual["musixmatch-translation-language"],
 					}),

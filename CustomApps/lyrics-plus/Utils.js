@@ -357,7 +357,6 @@ const Utils = {
 				below: "Below original",
 			};
 		}
-		console.log(`[lyrics-plus] options builder returned for mode ${mode}:`, options);
 		return options;
 	},
 	_optionsMenuTriggerCbs: [],

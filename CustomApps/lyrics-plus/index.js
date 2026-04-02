@@ -369,8 +369,6 @@ class LyricsContainer extends react.Component {
 
 		const currentLanguage = selectedLanguage;
 
-		console.log(`[lyrics-plus] fetch translation start for trackId ${trackId} language ${selectedLanguage}`);
-
 		Spicetify.showNotification(MUSIXMATCH_TRANSLATION_FETCH_MESSAGE, false, 1000);
 
 		this.setState({
@@ -395,7 +393,6 @@ class LyricsContainer extends react.Component {
 		}
 
 		if (!translation) {
-			console.log(`[lyrics-plus] fetch finish: no translation found`);
 			if (isLatestRequest()) {
 				Spicetify.showNotification(MUSIXMATCH_TRANSLATION_FETCH_FAILED_MESSAGE, true, 3000);
 				if (CACHE[currentUri]) {
@@ -423,7 +420,6 @@ class LyricsContainer extends react.Component {
 			return;
 		}
 
-		console.log(`[lyrics-plus] mapping translations...`);
 		const mappedTranslation = latestBaseLyrics.map((line) => {
 			const originalText = line.originalText ?? line.text;
 			const matched = translation.find((entry) => Utils.processLyrics(entry.matchedLine) === Utils.processLyrics(originalText));
@@ -448,7 +444,6 @@ class LyricsContainer extends react.Component {
 			CACHE[currentUri].musixmatchTranslation = mappedTranslation;
 			CACHE[currentUri].musixmatchTranslationLanguage = currentLanguage;
 		}
-		console.log(`[lyrics-plus] fetch finish: translation mapped successfully`);
 		finishRequest();
 	}
 
@@ -613,8 +608,6 @@ class LyricsContainer extends react.Component {
 				CONFIG.visual["translate:detect-language-override"] !== "off" ? CONFIG.visual["translate:detect-language-override"] : defaultLanguage;
 			const friendlyLanguage = language && new Intl.DisplayNames(["en"], { type: "language" }).of(language.split("-")[0])?.toLowerCase();
 			const targetConvert = CONFIG.visual[`translation-mode:${friendlyLanguage}`];
-
-			console.log(`[lyrics-plus] mode-change checking translation for lang: ${language}`, { friendlyLanguage, targetConvert });
 
 			const isMemorey = CACHE[tempState.uri]?.[targetConvert];
 			if (CONFIG.visual.translate && defaultLanguage && !isMemorey) {
@@ -1156,7 +1149,6 @@ class LyricsContainer extends react.Component {
 						}
 						return line;
 					});
-					console.log(`[lyrics-plus] render decision: merged ${karaLyrics.filter((l) => l.originalText).length} translated lines into karaoke`);
 				}
 				activeItem = react.createElement(CONFIG.visual["synced-compact"] ? SyncedLyricsPage : SyncedExpandedLyricsPage, {
 					isKara: true,

@@ -552,6 +552,135 @@ const OptionList = ({ type, items, onChange }) => {
 	});
 };
 
+function openConfigOverlay(configContainer) {
+	const existingOverlay = document.getElementById("lyrics-plus-settings-overlay");
+	if (existingOverlay) {
+		existingOverlay.remove();
+	}
+
+	const overlay = document.createElement("div");
+	overlay.id = "lyrics-plus-settings-overlay";
+	Object.assign(overlay.style, {
+		position: "fixed",
+		inset: "0",
+		background: "rgba(0, 0, 0, 0.72)",
+		zIndex: "2147483647",
+		display: "flex",
+		alignItems: "center",
+		justifyContent: "center",
+		padding: "24px",
+		pointerEvents: "auto",
+		WebkitAppRegion: "no-drag",
+	});
+
+	const panel = document.createElement("div");
+	Object.assign(panel.style, {
+		width: "min(1200px, 96vw)",
+		height: "min(86vh, 920px)",
+		background: "var(--spice-main)",
+		color: "var(--spice-text)",
+		borderRadius: "12px",
+		boxShadow: "0 20px 60px rgba(0, 0, 0, 0.45)",
+		display: "grid",
+		gridTemplateRows: "auto 1fr",
+		position: "relative",
+		overflow: "hidden",
+		WebkitAppRegion: "no-drag",
+	});
+
+	const header = document.createElement("div");
+	Object.assign(header.style, {
+		display: "flex",
+		alignItems: "center",
+		justifyContent: "space-between",
+		padding: "14px 16px",
+		borderBottom: "1px solid var(--spice-sidebar)",
+		WebkitAppRegion: "no-drag",
+	});
+
+	const title = document.createElement("h2");
+	title.textContent = "Lyrics Plus";
+	Object.assign(title.style, {
+		margin: "0",
+		fontSize: "18px",
+		fontWeight: "700",
+	});
+
+	const closeButton = document.createElement("button");
+	closeButton.type = "button";
+	closeButton.innerHTML = "&times;";
+	closeButton.setAttribute("aria-label", "Close settings");
+	Object.assign(closeButton.style, {
+		width: "30px",
+		height: "30px",
+		border: "none",
+		borderRadius: "50%",
+		cursor: "pointer",
+		background: "rgba(255, 255, 255, 0.08)",
+		color: "var(--spice-text)",
+		fontSize: "16px",
+		lineHeight: "1",
+		WebkitAppRegion: "no-drag",
+	});
+
+	const contentHost = document.createElement("div");
+	Object.assign(contentHost.style, {
+		overflow: "auto",
+		padding: "16px",
+		WebkitAppRegion: "no-drag",
+	});
+
+	let isClosing = false;
+	const closeOverlay = () => {
+		if (isClosing) return;
+		isClosing = true;
+
+		document.removeEventListener("keydown", handleEscape);
+
+		try {
+			if (typeof Spicetify?.ReactDOM?.unmountComponentAtNode === "function") {
+				Spicetify.ReactDOM.unmountComponentAtNode(contentHost);
+			}
+		} catch (error) {
+			console.error("Lyrics Plus: failed to unmount settings overlay", error);
+		} finally {
+			overlay.remove();
+		}
+	};
+
+	const handleEscape = (event) => {
+		if (event.key === "Escape") {
+			closeOverlay();
+		}
+	};
+
+	overlay.addEventListener("click", (event) => {
+		if (event.target === overlay) {
+			closeOverlay();
+		}
+	});
+
+	overlay.addEventListener("dblclick", (event) => {
+		event.preventDefault();
+		event.stopPropagation();
+	});
+
+	panel.addEventListener("dblclick", (event) => {
+		event.preventDefault();
+		event.stopPropagation();
+	});
+
+	closeButton.addEventListener("click", closeOverlay);
+	document.addEventListener("keydown", handleEscape);
+
+	header.append(title, closeButton);
+	panel.append(header, contentHost);
+	overlay.append(panel);
+	document.body.append(overlay);
+
+	Spicetify.ReactDOM.render(configContainer, contentHost);
+}
+
 function openConfig() {
 	const configContainer = react.createElement(
 		"div",
@@ -739,9 +868,9 @@ function openConfig() {
 		})
 	);
 
-	Spicetify.PopupModal.display({
-		title: "Lyrics Plus",
-		content: configContainer,
-		isLarge: true,
-	});
+	openConfigOverlay(configContainer);
+}
+
+if (typeof window !== "undefined") {
+	window.__lyricsPlusOpenConfig = openConfig;
 }

@@ -26,6 +26,7 @@ const IdlingIndicator = ({ isActive, progress, delay, className = "", style = {}
 			style: {
 				"--indicator-delay": `${delay}ms`,
 				...style,
+				...style,
 			},
 		},
 		react.createElement("div", { className: `lyrics-idling-indicator__circle ${progress >= 0.05 ? "active" : ""}` }),
@@ -137,6 +138,7 @@ const KaraokeLine = ({ text, isActive, position, startTime, endTime }) => {
 		return text.map(({ word }, i) => (typeof word === "string" ? word : react.cloneElement(word, { key: i })));
 	}
 
+	let accumulatedTime = startTime;
 	return text.map(({ word, time }, i) => {
 		const isRTL = isRTLText(typeof word === "string" ? word : "");
 		const isWordActive = position >= startTime;
@@ -186,6 +188,16 @@ const SyncedLyricsPage = react.memo(({ lyrics = [], provider, copyright, isKara 
 	let activeLineIndex = 0;
 	for (let i = lyricWithEmptyLines.length - 1; i > 0; i--) {
 		if (position >= lyricWithEmptyLines[i].startTime) {
+			// If this is a pause line and the next one starts at the same time and is NOT a pause line,
+			// prefer the next line (the text).
+			if (
+				isPauseLine(lyricWithEmptyLines[i].text) &&
+				lyricWithEmptyLines[i + 1] &&
+				position >= lyricWithEmptyLines[i + 1].startTime &&
+				!isPauseLine(lyricWithEmptyLines[i + 1].text)
+			) {
+				continue;
+			}
 			activeLineIndex = i;
 			break;
 		}
@@ -597,6 +609,11 @@ const SyncedExpandedLyricsPage = react.memo(({ lyrics, provider, copyright, isKa
 	for (let i = padded.length - 1; i >= 0; i--) {
 		const line = padded[i];
 		if (position >= line.startTime) {
+			// If this is a pause line and the next one starts at the same time and is NOT a pause line,
+			// prefer the next line (the text).
+			if (isPauseLine(line.text) && padded[i + 1] && position >= padded[i + 1].startTime && !isPauseLine(padded[i + 1].text)) {
+				continue;
+			}
 			activeLineIndex = i;
 			break;
 		}
@@ -797,6 +814,7 @@ const UnsyncedLyricsPage = react.memo(({ lyrics, provider, copyright }) => {
 								.catch(() => Spicetify.showNotification("Failed to copy lyrics to clipboard"));
 						},
 					},
+					renderPerformer(performer, lyrics[index - 1]?.performer, false),
 					renderPerformer(performer, lyrics[index - 1]?.performer, false),
 					lineText
 				),

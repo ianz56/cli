@@ -1130,7 +1130,7 @@ class LyricsContainer extends react.Component {
 			this.state.musixmatchTranslation !== null ||
 			hasMusixmatchLanguages ||
 			this.state.ianz56Translation !== null;
-		const hasPerformer = !!this.state.currentLyrics?.some((line) => line.performer);
+		const hasPerformer = Array.isArray(this.state.currentLyrics) && this.state.currentLyrics.some((line) => line.performer);
 
 		if (mode !== -1) {
 			showTranslationButton = (friendlyLanguage || hasTranslation) && (mode === SYNCED || mode === UNSYNCED || mode === KARAOKE);

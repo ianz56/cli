@@ -1216,11 +1216,7 @@ class LyricsContainer extends react.Component {
 			);
 		}
 
-		if (this.state.mode !== mode) {
-			console.log(`[lyrics-plus] mode-change to ${mode}`);
-			Utils.triggerOptionsMenuUpdate(mode);
-			this.state.mode = mode;
-		}
+		this._resolvedMode = mode;
 
 		const out = react.createElement(
 			"div",

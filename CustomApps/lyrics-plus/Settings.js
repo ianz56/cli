@@ -555,7 +555,23 @@ const OptionList = ({ type, items, onChange }) => {
 function openConfigOverlay(configContainer) {
 	const existingOverlay = document.getElementById("lyrics-plus-settings-overlay");
 	if (existingOverlay) {
-		existingOverlay.remove();
+		// Properly cleanup existing overlay
+		const existingContentHost = existingOverlay.querySelector("div[style*='overflow: auto']");
+		const existingKeydownHandlers = existingOverlay._keydownHandler;
+
+		if (existingKeydownHandlers) {
+			document.removeEventListener("keydown", existingKeydownHandlers);
+		}
+
+		try {
+			if (existingContentHost && typeof Spicetify?.ReactDOM?.unmountComponentAtNode === "function") {
+				Spicetify.ReactDOM.unmountComponentAtNode(existingContentHost);
+			}
+		} catch (error) {
+			console.error("Lyrics Plus: failed to unmount existing settings overlay", error);
+		} finally {
+			existingOverlay.remove();
+		}
 	}
 
 	const overlay = document.createElement("div");
@@ -574,6 +590,10 @@ function openConfigOverlay(configContainer) {
 	});
 
 	const panel = document.createElement("div");
+	panel.setAttribute("role", "dialog");
+	panel.setAttribute("aria-modal", "true");
+	panel.setAttribute("aria-labelledby", "lyrics-plus-settings-title");
+	panel.setAttribute("tabindex", "-1");
 	Object.assign(panel.style, {
 		width: "min(1200px, 96vw)",
 		height: "min(86vh, 920px)",
@@ -599,6 +619,7 @@ function openConfigOverlay(configContainer) {
 	});
 
 	const title = document.createElement("h2");
+	title.id = "lyrics-plus-settings-title";
 	title.textContent = "Lyrics Plus";
 	Object.assign(title.style, {
 		margin: "0",
@@ -630,27 +651,82 @@ function openConfigOverlay(configContainer) {
 		WebkitAppRegion: "no-drag",
 	});
 
+	let prevFocus = document.activeElement;
+	let reactRoot = null;
 	let isClosing = false;
+
 	const closeOverlay = () => {
 		if (isClosing) return;
 		isClosing = true;
 
 		document.removeEventListener("keydown", handleEscape);
+		document.removeEventListener("keydown", handleFocusTrap);
+		document.removeEventListener("focusin", handleFocusIn);
 
 		try {
-			if (typeof Spicetify?.ReactDOM?.unmountComponentAtNode === "function") {
+			if (reactRoot && typeof reactRoot.unmount === "function") {
+				reactRoot.unmount();
+			} else if (typeof Spicetify?.ReactDOM?.unmountComponentAtNode === "function") {
 				Spicetify.ReactDOM.unmountComponentAtNode(contentHost);
 			}
 		} catch (error) {
 			console.error("Lyrics Plus: failed to unmount settings overlay", error);
 		} finally {
 			overlay.remove();
+			if (prevFocus && typeof prevFocus.focus === "function") {
+				try {
+					prevFocus.focus();
+				} catch (e) {
+					// Ignore if element is no longer focusable
+				}
+			}
 		}
 	};
 
 	const handleEscape = (event) => {
 		if (event.key === "Escape") {
 			closeOverlay();
+		}
+	};
+
+	const getFocusableElements = () => {
+		const focusableSelectors = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
+		return Array.from(panel.querySelectorAll(focusableSelectors)).filter((el) => {
+			return !el.disabled && el.offsetParent !== null;
+		});
+	};
+
+	const handleFocusTrap = (event) => {
+		if (event.key !== "Tab") return;
+
+		const focusableElements = getFocusableElements();
+		if (focusableElements.length === 0) return;
+
+		const firstFocusable = focusableElements[0];
+		const lastFocusable = focusableElements[focusableElements.length - 1];
+
+		if (event.shiftKey) {
+			if (document.activeElement === firstFocusable) {
+				event.preventDefault();
+				lastFocusable.focus();
+			}
+		} else {
+			if (document.activeElement === lastFocusable) {
+				event.preventDefault();
+				firstFocusable.focus();
+			}
+		}
+	};
+
+	const handleFocusIn = (event) => {
+		if (!panel.contains(event.target) && event.target !== panel) {
+			event.preventDefault();
+			const focusableElements = getFocusableElements();
+			if (focusableElements.length > 0) {
+				focusableElements[0].focus();
+			} else {
+				panel.focus();
+			}
 		}
 	};
 
@@ -672,13 +748,34 @@ function openConfigOverlay(configContainer) {
 
 	closeButton.addEventListener("click", closeOverlay);
 	document.addEventListener("keydown", handleEscape);
+	document.addEventListener("keydown", handleFocusTrap);
+	document.addEventListener("focusin", handleFocusIn);
+	overlay._keydownHandler = handleEscape;
 
 	header.append(title, closeButton);
 	panel.append(header, contentHost);
 	overlay.append(panel);
 	document.body.append(overlay);
 
-	Spicetify.ReactDOM.render(configContainer, contentHost);
+	// React 19 compatibility: Use createRoot if available, fallback to render
+	if (typeof Spicetify?.ReactDOM?.createRoot === "function") {
+		reactRoot = Spicetify.ReactDOM.createRoot(contentHost);
+		reactRoot.render(configContainer);
+	} else if (typeof Spicetify?.ReactDOM?.render === "function") {
+		Spicetify.ReactDOM.render(configContainer, contentHost);
+	}
+
+	// Set initial focus
+	setTimeout(() => {
+		const focusableElements = getFocusableElements();
+		if (focusableElements.length > 0) {
+			focusableElements[0].focus();
+		} else if (closeButton) {
+			closeButton.focus();
+		} else {
+			panel.focus();
+		}
+	}, 0);
 }
 
 function openConfig() {

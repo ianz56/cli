@@ -334,6 +334,30 @@ div.lyrics-tabBar-headerItemLink {
 	transition-timing-function: linear;
 }
 
+.lyrics-lyricsContainer-LyricsLine:not(.lyrics-lyricsContainer-LyricsLine-active):hover .lyrics-lyricsContainer-Karaoke-Word {
+	background-position: top left;
+}
+
+/* RTL Karaoke - reverse gradient direction */
+.lyrics-lyricsContainer-Karaoke-Word.lyrics-lyricsContainer-Karaoke-WordRTL {
+	background-image: linear-gradient(
+		to left,
+		var(--lyrics-color-active),
+		var(--lyrics-color-active) 45%,
+		var(--lyrics-color-inactive) 55%,
+		var(--lyrics-color-inactive)
+	);
+	background-position: top right 100%;
+}
+
+.lyrics-lyricsContainer-Karaoke-WordRTL.lyrics-lyricsContainer-Karaoke-WordActive {
+	background-position: top right !important;
+}
+
+.lyrics-lyricsContainer-LyricsLine:not(.lyrics-lyricsContainer-LyricsLine-active):hover .lyrics-lyricsContainer-Karaoke-WordRTL {
+	background-position: top right;
+}
+
 .lyrics-lyricsContainer-Karaoke-BackgroundLine {
 	font-size: 0.85em;
 	opacity: 0.7;

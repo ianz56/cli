@@ -26,7 +26,6 @@ const IdlingIndicator = ({ isActive, progress, delay, className = "", style = {}
 			style: {
 				"--indicator-delay": `${delay}ms`,
 				...style,
-				...style,
 			},
 		},
 		react.createElement("div", { className: `lyrics-idling-indicator__circle ${progress >= 0.05 ? "active" : ""}` }),
@@ -191,10 +190,10 @@ const SyncedLyricsPage = react.memo(({ lyrics = [], provider, copyright, isKara 
 			// If this is a pause line and the next one starts at the same time and is NOT a pause line,
 			// prefer the next line (the text).
 			if (
-				isPauseLine(lyricWithEmptyLines[i].text) &&
+				isPauseLine(lyricWithEmptyLines[i]) &&
 				lyricWithEmptyLines[i + 1] &&
 				position >= lyricWithEmptyLines[i + 1].startTime &&
-				!isPauseLine(lyricWithEmptyLines[i + 1].text)
+				!isPauseLine(lyricWithEmptyLines[i + 1])
 			) {
 				continue;
 			}
@@ -611,7 +610,7 @@ const SyncedExpandedLyricsPage = react.memo(({ lyrics, provider, copyright, isKa
 		if (position >= line.startTime) {
 			// If this is a pause line and the next one starts at the same time and is NOT a pause line,
 			// prefer the next line (the text).
-			if (isPauseLine(line.text) && padded[i + 1] && position >= padded[i + 1].startTime && !isPauseLine(padded[i + 1].text)) {
+			if (isPauseLine(line) && padded[i + 1] && position >= padded[i + 1].startTime && !isPauseLine(padded[i + 1])) {
 				continue;
 			}
 			activeLineIndex = i;
@@ -814,7 +813,6 @@ const UnsyncedLyricsPage = react.memo(({ lyrics, provider, copyright }) => {
 								.catch(() => Spicetify.showNotification("Failed to copy lyrics to clipboard"));
 						},
 					},
-					renderPerformer(performer, lyrics[index - 1]?.performer, false),
 					renderPerformer(performer, lyrics[index - 1]?.performer, false),
 					lineText
 				),

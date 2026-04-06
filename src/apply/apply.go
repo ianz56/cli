@@ -68,6 +68,33 @@ func AdditionalOptions(appsFolderPath string, flags Flag) {
 		filesToModified[filepath.Join(appsFolderPath, "xpui", "vendor~xpui.js")] = []func(string, Flag){insertExpFeatures}
 	}
 
+	if flags.SidebarConfig {
+		if err := utils.CopyFile(
+			filepath.Join(utils.GetJsHelperDir(), "sidebarConfig.js"),
+			filepath.Join(appsFolderPath, "xpui", "helper")); err != nil {
+			utils.PrintError(err.Error())
+			flags.SidebarConfig = false
+		}
+	}
+
+	if flags.HomeConfig {
+		if err := utils.CopyFile(
+			filepath.Join(utils.GetJsHelperDir(), "homeConfig.js"),
+			filepath.Join(appsFolderPath, "xpui", "helper")); err != nil {
+			utils.PrintError(err.Error())
+			flags.HomeConfig = false
+		}
+	}
+
+	if flags.ExpFeatures {
+		if err := utils.CopyFile(
+			filepath.Join(utils.GetJsHelperDir(), "expFeatures.js"),
+			filepath.Join(appsFolderPath, "xpui", "helper")); err != nil {
+			utils.PrintError(err.Error())
+			flags.ExpFeatures = false
+		}
+	}
+
 	for file, calls := range filesToModified {
 		if _, err := os.Stat(file); os.IsNotExist(err) {
 			continue
@@ -76,24 +103,6 @@ func AdditionalOptions(appsFolderPath string, flags Flag) {
 		for _, call := range calls {
 			call(file, flags)
 		}
-	}
-
-	if flags.SidebarConfig {
-		utils.CopyFile(
-			filepath.Join(utils.GetJsHelperDir(), "sidebarConfig.js"),
-			filepath.Join(appsFolderPath, "xpui", "helper"))
-	}
-
-	if flags.HomeConfig {
-		utils.CopyFile(
-			filepath.Join(utils.GetJsHelperDir(), "homeConfig.js"),
-			filepath.Join(appsFolderPath, "xpui", "helper"))
-	}
-
-	if flags.ExpFeatures {
-		utils.CopyFile(
-			filepath.Join(utils.GetJsHelperDir(), "expFeatures.js"),
-			filepath.Join(appsFolderPath, "xpui", "helper"))
 	}
 }
 

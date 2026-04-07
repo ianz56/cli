@@ -218,13 +218,15 @@ const ProviderApple = (() => {
 			const isInline = config?.visual?.["synced-background-inline"];
 
 			if (lyricsJson.type && lyricsJson.type !== "None") {
-				karaoke.push({
-					startTime: lineStartTime,
-					endTime: lineEndTime,
-					text: mainWords,
-					isBackground: false,
-					background: backgroundWords.length > 0 ? backgroundWords : undefined,
-				});
+				if (lyricsJson.type === "Syllable") {
+					karaoke.push({
+						startTime: lineStartTime,
+						endTime: lineEndTime,
+						text: mainWords,
+						isBackground: false,
+						background: backgroundWords.length > 0 ? backgroundWords : undefined,
+					});
+				}
 
 				synced.push({
 					startTime: lineStartTime,

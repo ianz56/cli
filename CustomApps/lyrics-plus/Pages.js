@@ -179,34 +179,87 @@ const SyncedLyricsPage = react.memo(({ lyrics = [], provider, copyright, isKara 
 		}
 	});
 
-	const lyricWithEmptyLines = useMemo(
-		() =>
-			[emptyLine, emptyLine, ...processPauseLines(lyrics, isKara)].map((line, i) => ({
-				...line,
-				lineNumber: i,
-			})),
-		[lyrics, isKara]
-	);
+	const lyricWithEmptyLines = useMemo(() => {
+		const processed = [emptyLine, emptyLine, ...processPauseLines(lyrics, isKara)].map((line, i) => ({
+			...line,
+			lineNumber: i,
+		}));
+
+		// Pre-calculate overlapping clusters (transitive groups) to avoid O(N^2) in render
+		const groupIds = new Array(processed.length).fill(-1);
+		const groups = [];
+
+		for (let i = 0; i < processed.length; i++) {
+			if (groupIds[i] !== -1) continue;
+
+			// BFS to find all connected lines in the overlap graph
+			const currentGroup = new Set([i]);
+			const queue = [i];
+			groupIds[i] = groups.length;
+
+			while (queue.length > 0) {
+				const u = queue.shift();
+				const lineU = processed[u];
+				for (let v = 0; v < processed.length; v++) {
+					if (currentGroup.has(v)) continue;
+					const lineV = processed[v];
+					const overlap = Math.min(lineU.endTime ?? Infinity, lineV.endTime ?? Infinity) - Math.max(lineU.startTime || 0, lineV.startTime || 0);
+
+					if (overlap >= 1000) {
+						currentGroup.add(v);
+						groupIds[v] = groups.length;
+						queue.push(v);
+					}
+				}
+			}
+			groups.push(Array.from(currentGroup).sort((a, b) => a - b));
+		}
+
+		return processed.map((line, i) => ({
+			...line,
+			cluster: groups[groupIds[i]],
+		}));
+	}, [lyrics, isKara]);
 
 	const lyricsId = lyrics && lyrics.length > 0 ? lyrics[0].text : "";
-
-	let activeLineIndex = 0;
-	for (let i = lyricWithEmptyLines.length - 1; i > 0; i--) {
-		if (position >= lyricWithEmptyLines[i].startTime) {
-			// If this is a pause line and the next one starts at the same time and is NOT a pause line,
-			// prefer the next line (the text).
-			if (
-				isPauseLine(lyricWithEmptyLines[i]) &&
-				lyricWithEmptyLines[i + 1] &&
-				position >= lyricWithEmptyLines[i + 1].startTime &&
-				!isPauseLine(lyricWithEmptyLines[i + 1])
-			) {
+	// Find the latest line that has started
+	let lastStartedIndex = 0;
+	for (let i = lyricWithEmptyLines.length - 1; i >= 0; i--) {
+		const line = lyricWithEmptyLines[i];
+		if (position >= line.startTime) {
+			// Prefer text line over pause line if they start at the same time
+			if (isPauseLine(line) && lyricWithEmptyLines[i + 1] && position >= lyricWithEmptyLines[i + 1].startTime && !isPauseLine(lyricWithEmptyLines[i + 1])) {
 				continue;
 			}
-			activeLineIndex = i;
+			lastStartedIndex = i;
 			break;
 		}
 	}
+
+	let activeLineIndex = lastStartedIndex;
+	const currentCluster = lyricWithEmptyLines[lastStartedIndex]?.cluster || [lastStartedIndex];
+
+	// Count how many lines in this cluster have started (ignoring if they finished)
+	const startedInCluster = [];
+	for (const idx of currentCluster) {
+		if (position >= lyricWithEmptyLines[idx].startTime) {
+			startedInCluster.push(idx);
+		}
+	}
+
+	if (startedInCluster.length > 3) {
+		// Smooth Dynamic Focus: Stay exactly 2 lines behind the head to show progress but keep context.
+		activeLineIndex = startedInCluster[startedInCluster.length - 3];
+	} else {
+		// Anchor Focus: Stay on the first line of the overlapping group for stability.
+		activeLineIndex = currentCluster[0];
+	}
+
+	const latestStartedInCluster = startedInCluster[startedInCluster.length - 1];
+
+	const anyLinePlaying = lyricWithEmptyLines.some((line) => {
+		return line.startTime != null && line.endTime != null && position >= line.startTime && position <= line.endTime;
+	});
 
 	const { activeLines, startLineIndex, activeElementIndex } = useMemo(() => {
 		// Keep a bounded window of lines around the active line.
@@ -321,7 +374,7 @@ const SyncedLyricsPage = react.memo(({ lyrics = [], provider, copyright, isKara 
 				let ref;
 
 				const isPlaying = startTime != null && endTime != null && position >= startTime && position <= endTime;
-				const isActive = isFocusedLine || isPlaying;
+				const isActive = isPlaying || (lineNumber === latestStartedInCluster && !anyLinePlaying);
 
 				if (isFocusedLine) {
 					ref = activeLineEle;
@@ -601,7 +654,44 @@ const SyncedExpandedLyricsPage = react.memo(({ lyrics, provider, copyright, isKa
 		}
 	});
 
-	const padded = useMemo(() => [emptyLine, ...processPauseLines(lyrics, isKara)], [lyrics, isKara]);
+	const padded = useMemo(() => {
+		const processed = [emptyLine, ...processPauseLines(lyrics, isKara)];
+
+		// Pre-calculate overlapping clusters (transitive groups) to avoid O(N^2) in render
+		const groupIds = new Array(processed.length).fill(-1);
+		const groups = [];
+
+		for (let i = 0; i < processed.length; i++) {
+			if (groupIds[i] !== -1) continue;
+
+			// BFS to find all connected lines in the overlap graph
+			const currentGroup = new Set([i]);
+			const queue = [i];
+			groupIds[i] = groups.length;
+
+			while (queue.length > 0) {
+				const u = queue.shift();
+				const lineU = processed[u];
+				for (let v = 0; v < processed.length; v++) {
+					if (currentGroup.has(v)) continue;
+					const lineV = processed[v];
+					const overlap = Math.min(lineU.endTime ?? Infinity, lineV.endTime ?? Infinity) - Math.max(lineU.startTime || 0, lineV.startTime || 0);
+
+					if (overlap >= 1000) {
+						currentGroup.add(v);
+						groupIds[v] = groups.length;
+						queue.push(v);
+					}
+				}
+			}
+			groups.push(Array.from(currentGroup).sort((a, b) => a - b));
+		}
+
+		return processed.map((line, i) => ({
+			...line,
+			cluster: groups[groupIds[i]],
+		}));
+	}, [lyrics, isKara]);
 
 	const initialScroll = useRef(false);
 
@@ -612,19 +702,40 @@ const SyncedExpandedLyricsPage = react.memo(({ lyrics, provider, copyright, isKa
 
 	const lyricsId = lyrics && lyrics.length > 0 ? lyrics[0].text : "";
 
-	let activeLineIndex = 0;
+	// Find the latest line that has started
+	let lastStartedIndex = 0;
 	for (let i = padded.length - 1; i >= 0; i--) {
 		const line = padded[i];
 		if (position >= line.startTime) {
-			// If this is a pause line and the next one starts at the same time and is NOT a pause line,
-			// prefer the next line (the text).
+			// Prefer text line over pause line if they start at the same time
 			if (isPauseLine(line) && padded[i + 1] && position >= padded[i + 1].startTime && !isPauseLine(padded[i + 1])) {
 				continue;
 			}
-			activeLineIndex = i;
+			lastStartedIndex = i;
 			break;
 		}
 	}
+
+	let activeLineIndex = lastStartedIndex;
+	const currentCluster = padded[lastStartedIndex]?.cluster || [lastStartedIndex];
+
+	// Count how many lines in this cluster have started (ignoring if they finished)
+	const startedInCluster = [];
+	for (const idx of currentCluster) {
+		if (position >= padded[idx].startTime) {
+			startedInCluster.push(idx);
+		}
+	}
+
+	if (startedInCluster.length > 3) {
+		// Smooth Dynamic Focus: Stay exactly 2 lines behind the head to show progress but keep context.
+		activeLineIndex = startedInCluster[startedInCluster.length - 3];
+	} else {
+		// Anchor Focus: Stay on the first line of the overlapping group for stability.
+		activeLineIndex = currentCluster[0];
+	}
+
+	const latestStartedInCluster = startedInCluster[startedInCluster.length - 1];
 
 	useEffect(() => {
 		if (activeLineRef.current && (!initialScroll.current || isInViewport(activeLineRef.current))) {
@@ -636,6 +747,10 @@ const SyncedExpandedLyricsPage = react.memo(({ lyrics, provider, copyright, isKa
 			initialScroll.current = true;
 		}
 	}, [activeLineIndex]);
+
+	const anyLinePlaying = padded.some((line) => {
+		return line.startTime != null && line.endTime != null && position >= line.startTime && position <= line.endTime;
+	});
 
 	return react.createElement(
 		"div",
@@ -683,7 +798,7 @@ const SyncedExpandedLyricsPage = react.memo(({ lyrics, provider, copyright, isKa
 
 			const isPlaying = startTime != null && endTime != null && position >= startTime && position <= endTime;
 			const isPast = (endTime != null && position > endTime) || (!isFocused && startTime != null && position > startTime);
-			const isActive = isFocused || isPlaying;
+			const isActive = isPlaying || (i === latestStartedInCluster && !anyLinePlaying);
 
 			let className = `lyrics-lyricsContainer-LyricsLine${isActive ? " lyrics-lyricsContainer-LyricsLine-active" : ""}${isPast ? " lyrics-lyricsContainer-LyricsLine-past" : ""}`;
 			if (isPause) {

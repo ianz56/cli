@@ -302,7 +302,7 @@ const SyncedLyricsPage = react.memo(({ lyrics = [], provider, copyright, isKara 
 		if (activeLineEle.current && lyricContainerEle.current) {
 			const linesBefore = CONFIG.visual["lines-before"];
 			const linesAfter = CONFIG.visual["lines-after"];
-			const lineHeight = parseFloat(getComputedStyle(lyricContainerEle.current).getPropertyValue("--lyrics-line-height")) || 50;
+			const lineHeight = parseFloat(getComputedStyle(lyricContainerEle.current).getPropertyValue("--lyrics-line-height")) || 36;
 			const focalPoint = lyricContainerEle.current.clientHeight / 2 + (linesBefore - linesAfter) * (lineHeight / 2);
 			setOffset(focalPoint - (activeLineEle.current.offsetTop + activeLineEle.current.clientHeight / 2));
 		}

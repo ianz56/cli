@@ -253,12 +253,15 @@ const SyncedLyricsPage = react.memo(({ lyrics = [], provider, copyright, isKara 
 		}
 	}
 
+	const playingInCluster = startedInCluster.filter((idx) => position <= lyricWithEmptyLines[idx].endTime);
+
 	if (startedInCluster.length > 3) {
 		// Smooth Dynamic Focus: Stay exactly 2 lines behind the head to show progress but keep context.
 		activeLineIndex = startedInCluster[startedInCluster.length - 3];
 	} else {
-		// Anchor Focus: Stay on the first line of the overlapping group for stability.
-		activeLineIndex = currentCluster[0];
+		// Shifting Anchor Focus: Focus on the first line that is STILL playing.
+		// Fallback to lastStartedIndex (the "bottom" of the group) when all finish to prevent jumping.
+		activeLineIndex = playingInCluster.length > 0 ? playingInCluster[0] : lastStartedIndex;
 	}
 
 	const latestStartedInCluster = startedInCluster[startedInCluster.length - 1];
@@ -745,12 +748,15 @@ const SyncedExpandedLyricsPage = react.memo(({ lyrics, provider, copyright, isKa
 		}
 	}
 
+	const playingInCluster = startedInCluster.filter((idx) => position <= padded[idx].endTime);
+
 	if (startedInCluster.length > 3) {
 		// Smooth Dynamic Focus: Stay exactly 2 lines behind the head to show progress but keep context.
 		activeLineIndex = startedInCluster[startedInCluster.length - 3];
 	} else {
-		// Anchor Focus: Stay on the first line of the overlapping group for stability.
-		activeLineIndex = currentCluster[0];
+		// Shifting Anchor Focus: Focus on the first line that is STILL playing.
+		// Fallback to lastStartedIndex (the "bottom" of the group) when all finish to prevent jumping.
+		activeLineIndex = playingInCluster.length > 0 ? playingInCluster[0] : lastStartedIndex;
 	}
 
 	const latestStartedInCluster = startedInCluster[startedInCluster.length - 1];

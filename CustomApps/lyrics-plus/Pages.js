@@ -297,7 +297,11 @@ const SyncedLyricsPage = react.memo(({ lyrics = [], provider, copyright, isKara 
 	const computeOffsetRef = useRef();
 	computeOffsetRef.current = () => {
 		if (activeLineEle.current && lyricContainerEle.current) {
-			setOffset(lyricContainerEle.current.clientHeight / 2 - (activeLineEle.current.offsetTop + activeLineEle.current.clientHeight / 2));
+			const linesBefore = CONFIG.visual["lines-before"];
+			const linesAfter = CONFIG.visual["lines-after"];
+			const lineHeight = parseFloat(getComputedStyle(lyricContainerEle.current).getPropertyValue("--lyrics-line-height")) || 50;
+			const focalPoint = lyricContainerEle.current.clientHeight / 2 + (linesBefore - linesAfter) * (lineHeight / 2);
+			setOffset(focalPoint - (activeLineEle.current.offsetTop + activeLineEle.current.clientHeight / 2));
 		}
 	};
 
@@ -751,11 +755,16 @@ const SyncedExpandedLyricsPage = react.memo(({ lyrics, provider, copyright, isKa
 
 	const latestStartedInCluster = startedInCluster[startedInCluster.length - 1];
 
-	useEffect(() => {
-		if (activeLineRef.current && (!initialScroll.current || isInViewport(activeLineRef.current))) {
-			activeLineRef.current.scrollIntoView({
+	react.useEffect(() => {
+		if (activeLineRef.current && pageRef.current) {
+			const linesBefore = CONFIG.visual["lines-before"];
+			const linesAfter = CONFIG.visual["lines-after"];
+			const lineHeight = parseFloat(getComputedStyle(pageRef.current).getPropertyValue("--lyrics-line-height")) || 50;
+			const focalPoint = pageRef.current.clientHeight / 2 + (linesBefore - linesAfter) * (lineHeight / 2);
+
+			pageRef.current.scrollTo({
+				top: activeLineRef.current.offsetTop - focalPoint + activeLineRef.current.clientHeight / 2,
 				behavior: initialScroll.current ? "smooth" : "auto",
-				block: "center",
 				inline: "nearest",
 			});
 			initialScroll.current = true;

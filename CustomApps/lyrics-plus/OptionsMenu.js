@@ -448,12 +448,7 @@ const AdjustmentsMenu = react.memo(({ mode, hasPerformer }) => {
 								name === "delay" && localStorage.setItem(`lyrics-delay:${Spicetify.Player.data.item.uri}`, value);
 								lyricContainerUpdate?.();
 							},
-						}),
-						react.createElement(
-							Spicetify.ReactComponent.MenuItem,
-							{ onClick: triggerOpenLyricsPlusSettings },
-							react.createElement("span", { style: { textDecoration: "underline" } }, "Open full settings")
-						)
+						})
 					),
 					trigger: "click",
 					action: "toggle",

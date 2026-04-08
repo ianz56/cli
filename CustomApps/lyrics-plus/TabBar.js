@@ -62,7 +62,7 @@ const TabBarMore = react.memo(({ items, switchTo, lockIn }) => {
 	);
 });
 
-const TopBarContent = ({ links, activeLink, lockLink, switchCallback, lockCallback }) => {
+const TopBarContent = ({ links, activeLink, lockLink, switchCallback, lockCallback, extra }) => {
 	const resizeHost = document.querySelector(
 		".Root__main-view .os-resize-observer-host, .Root__main-view .os-size-observer, .Root__main-view .main-view-container__scroll-node"
 	);
@@ -88,6 +88,7 @@ const TopBarContent = ({ links, activeLink, lockLink, switchCallback, lockCallba
 			switchCallback,
 			lockCallback,
 			windowSize,
+			extra,
 		})
 	);
 };
@@ -105,7 +106,7 @@ const TabBarContext = ({ children }) => {
 	);
 };
 
-const TabBar = react.memo(({ links, activeLink, lockLink, switchCallback, lockCallback, windowSize = Number.POSITIVE_INFINITY }) => {
+const TabBar = react.memo(({ links, activeLink, lockLink, switchCallback, lockCallback, windowSize = Number.POSITIVE_INFINITY, extra }) => {
 	const tabBarRef = react.useRef(null);
 	const [childrenSizes, setChildrenSizes] = useState([]);
 	const [availableSpace, setAvailableSpace] = useState(0);
@@ -199,7 +200,8 @@ const TabBar = react.memo(({ links, activeLink, lockLink, switchCallback, lockCa
 						switchTo: switchCallback,
 						lockIn: lockCallback,
 					})
-				: null
+				: null,
+			extra && react.createElement("li", { className: "lyrics-tabBar-headerItem lyrics-tabBar-extra" }, extra)
 		)
 	);
 });

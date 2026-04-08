@@ -179,34 +179,96 @@ const SyncedLyricsPage = react.memo(({ lyrics = [], provider, copyright, isKara 
 		}
 	});
 
-	const lyricWithEmptyLines = useMemo(
-		() =>
-			[emptyLine, emptyLine, ...processPauseLines(lyrics, isKara)].map((line, i) => ({
-				...line,
-				lineNumber: i,
-			})),
-		[lyrics, isKara]
-	);
+	const lyricWithEmptyLines = useMemo(() => {
+		const rawProcessed = [emptyLine, emptyLine, ...processPauseLines(lyrics, isKara)];
+
+		// 1. Initial pass for basic info and isPause status
+		const processed = rawProcessed.map((line, i) => ({
+			...line,
+			lineNumber: i,
+			isPause: isPauseLine(line),
+		}));
+
+		// 2. Backward pass for nextStartTime in O(N)
+		let nextNonPauseStart = null;
+		for (let i = processed.length - 1; i >= 0; i--) {
+			processed[i].nextStartTime = nextNonPauseStart;
+			if (!processed[i].isPause && processed[i].startTime != null) {
+				nextNonPauseStart = processed[i].startTime;
+			}
+		}
+
+		// Pre-calculate overlapping clusters (transitive groups) in O(N)
+		const groupIds = new Array(processed.length).fill(-1);
+		const groups = [];
+		let currentGroup = [];
+		let maxEnd = -1;
+
+		for (let i = 0; i < processed.length; i++) {
+			const line = processed[i];
+			const start = line.startTime ?? 0;
+			const end = line.endTime ?? Infinity;
+
+			if (currentGroup.length > 0 && start <= maxEnd - 1000) {
+				currentGroup.push(i);
+				maxEnd = Math.max(maxEnd, end);
+			} else {
+				if (currentGroup.length > 0) groups.push(currentGroup);
+				currentGroup = [i];
+				maxEnd = end;
+			}
+			groupIds[i] = groups.length;
+		}
+		if (currentGroup.length > 0) groups.push(currentGroup);
+
+		return processed.map((line, i) => ({
+			...line,
+			cluster: groups[groupIds[i]],
+		}));
+	}, [lyrics, isKara]);
 
 	const lyricsId = lyrics && lyrics.length > 0 ? lyrics[0].text : "";
-
-	let activeLineIndex = 0;
-	for (let i = lyricWithEmptyLines.length - 1; i > 0; i--) {
-		if (position >= lyricWithEmptyLines[i].startTime) {
-			// If this is a pause line and the next one starts at the same time and is NOT a pause line,
-			// prefer the next line (the text).
-			if (
-				isPauseLine(lyricWithEmptyLines[i]) &&
-				lyricWithEmptyLines[i + 1] &&
-				position >= lyricWithEmptyLines[i + 1].startTime &&
-				!isPauseLine(lyricWithEmptyLines[i + 1])
-			) {
+	// Find the latest line that has started
+	let lastStartedIndex = 0;
+	for (let i = lyricWithEmptyLines.length - 1; i >= 0; i--) {
+		const line = lyricWithEmptyLines[i];
+		if (position >= line.startTime) {
+			// Prefer text line over pause line if they start at the same time
+			if (line.isPause && lyricWithEmptyLines[i + 1] && position >= lyricWithEmptyLines[i + 1].startTime && !lyricWithEmptyLines[i + 1].isPause) {
 				continue;
 			}
-			activeLineIndex = i;
+			lastStartedIndex = i;
 			break;
 		}
 	}
+
+	let activeLineIndex = lastStartedIndex;
+	const currentCluster = lyricWithEmptyLines[lastStartedIndex]?.cluster || [lastStartedIndex];
+
+	// Count how many lines in this cluster have started (ignoring if they finished)
+	const startedInCluster = [];
+	for (const idx of currentCluster) {
+		if (position >= lyricWithEmptyLines[idx].startTime) {
+			startedInCluster.push(idx);
+		}
+	}
+
+	const playingInCluster = startedInCluster.filter((idx) => position <= lyricWithEmptyLines[idx].endTime);
+
+	if (startedInCluster.length > 3) {
+		// Smooth Dynamic Focus: Stay exactly 2 lines behind the head to show progress but keep context.
+		activeLineIndex = startedInCluster[startedInCluster.length - 3];
+	} else {
+		// Shifting Anchor Focus: Focus on the first line that is STILL playing.
+		// Fallback to lastStartedIndex (the "bottom" of the group) when all finish to prevent jumping.
+		activeLineIndex = playingInCluster.length > 0 ? playingInCluster[0] : lastStartedIndex;
+	}
+
+	const latestStartedInCluster = startedInCluster[startedInCluster.length - 1];
+
+	const anyLinePlaying = lyricWithEmptyLines.some((line) => {
+		return line.startTime != null && line.endTime != null && position >= line.startTime && position <= line.endTime;
+	});
 
 	const { activeLines, startLineIndex, activeElementIndex } = useMemo(() => {
 		// Keep a bounded window of lines around the active line.
@@ -221,7 +283,7 @@ const SyncedLyricsPage = react.memo(({ lyrics = [], provider, copyright, isKara 
 		const targetAfter = CONFIG.visual["lines-after"] + 1;
 		while (endIndex < lyricWithEmptyLines.length - 1 && visibleAfter < targetAfter) {
 			endIndex++;
-			if (!isPauseLine(lyricWithEmptyLines[endIndex])) {
+			if (!lyricWithEmptyLines[endIndex].isPause) {
 				visibleAfter++;
 			}
 		}
@@ -238,7 +300,11 @@ const SyncedLyricsPage = react.memo(({ lyrics = [], provider, copyright, isKara 
 	const computeOffsetRef = useRef();
 	computeOffsetRef.current = () => {
 		if (activeLineEle.current && lyricContainerEle.current) {
-			setOffset(lyricContainerEle.current.clientHeight / 2 - (activeLineEle.current.offsetTop + activeLineEle.current.clientHeight / 2));
+			const linesBefore = CONFIG.visual["lines-before"];
+			const linesAfter = CONFIG.visual["lines-after"];
+			const lineHeight = parseFloat(getComputedStyle(lyricContainerEle.current).getPropertyValue("--lyrics-line-height")) || 36;
+			const focalPoint = lyricContainerEle.current.clientHeight / 2 + (linesBefore - linesAfter) * (lineHeight / 2);
+			setOffset(focalPoint - (activeLineEle.current.offsetTop + activeLineEle.current.clientHeight / 2));
 		}
 	};
 
@@ -270,14 +336,14 @@ const SyncedLyricsPage = react.memo(({ lyrics = [], provider, copyright, isKara 
 	let currentIndex = 0;
 	for (let j = activeElementIndex; j < activeLines.length; j++) {
 		adjustedAnimationIndices[j] = currentIndex;
-		if (!isPauseLine(activeLines[j]) || j === activeElementIndex) {
+		if (!activeLines[j].isPause || j === activeElementIndex) {
 			currentIndex++;
 		}
 	}
 	currentIndex = -1;
 	for (let j = activeElementIndex - 1; j >= 0; j--) {
 		adjustedAnimationIndices[j] = currentIndex;
-		if (!isPauseLine(activeLines[j])) {
+		if (!activeLines[j].isPause) {
 			currentIndex--;
 		}
 	}
@@ -298,16 +364,15 @@ const SyncedLyricsPage = react.memo(({ lyrics = [], provider, copyright, isKara 
 				key: lyricsId,
 			},
 			react.createElement("div", { ref: spacerRef, style: { height: "0px" }, "aria-hidden": "true" }),
-			activeLines.map(({ text, lineNumber, startTime, endTime, originalText, performer, background }, i) => {
+			activeLines.map(({ text, lineNumber, startTime, endTime, originalText, performer, background, isPause, nextStartTime }, i) => {
 				const isFocusedLine = activeElementIndex === i;
-				const isPause = isPauseLine(activeLines[i]);
 
 				// Calculate indicator state for pause lines
 				let indicatorEl = null;
+
 				if (isPause) {
-					const nextStart = findNextLineStartTime(lyricWithEmptyLines, lineNumber);
 					const pauseStart = startTime || 0;
-					const pauseDuration = nextStart ? nextStart - pauseStart : 0;
+					const pauseDuration = nextStartTime ? nextStartTime - pauseStart : 0;
 					const progress = pauseDuration > 0 ? (position - pauseStart) / pauseDuration : 0;
 					indicatorEl = react.createElement(IdlingIndicator, {
 						isActive: isFocusedLine,
@@ -321,7 +386,7 @@ const SyncedLyricsPage = react.memo(({ lyrics = [], provider, copyright, isKara 
 				let ref;
 
 				const isPlaying = startTime != null && endTime != null && position >= startTime && position <= endTime;
-				const isActive = isFocusedLine || isPlaying;
+				const isActive = isPlaying || (lineNumber === latestStartedInCluster && !anyLinePlaying);
 
 				if (isFocusedLine) {
 					ref = activeLineEle;
@@ -601,7 +666,53 @@ const SyncedExpandedLyricsPage = react.memo(({ lyrics, provider, copyright, isKa
 		}
 	});
 
-	const padded = useMemo(() => [emptyLine, ...processPauseLines(lyrics, isKara)], [lyrics, isKara]);
+	const padded = useMemo(() => {
+		const rawProcessed = [emptyLine, ...processPauseLines(lyrics, isKara)];
+
+		// 1. Initial pass for basic info and isPause status
+		const processed = rawProcessed.map((line, i) => ({
+			...line,
+			lineNumber: i,
+			isPause: isPauseLine(line),
+		}));
+
+		// 2. Backward pass for nextStartTime in O(N)
+		let nextNonPauseStart = null;
+		for (let i = processed.length - 1; i >= 0; i--) {
+			processed[i].nextStartTime = nextNonPauseStart;
+			if (!processed[i].isPause && processed[i].startTime != null) {
+				nextNonPauseStart = processed[i].startTime;
+			}
+		}
+
+		// Pre-calculate overlapping clusters (transitive groups) in O(N)
+		const groupIds = new Array(processed.length).fill(-1);
+		const groups = [];
+		let currentGroup = [];
+		let maxEnd = -1;
+
+		for (let i = 0; i < processed.length; i++) {
+			const line = processed[i];
+			const start = line.startTime ?? 0;
+			const end = line.endTime ?? Infinity;
+
+			if (currentGroup.length > 0 && start <= maxEnd - 1000) {
+				currentGroup.push(i);
+				maxEnd = Math.max(maxEnd, end);
+			} else {
+				if (currentGroup.length > 0) groups.push(currentGroup);
+				currentGroup = [i];
+				maxEnd = end;
+			}
+			groupIds[i] = groups.length;
+		}
+		if (currentGroup.length > 0) groups.push(currentGroup);
+
+		return processed.map((line, i) => ({
+			...line,
+			cluster: groups[groupIds[i]],
+		}));
+	}, [lyrics, isKara]);
 
 	const initialScroll = useRef(false);
 
@@ -612,30 +723,63 @@ const SyncedExpandedLyricsPage = react.memo(({ lyrics, provider, copyright, isKa
 
 	const lyricsId = lyrics && lyrics.length > 0 ? lyrics[0].text : "";
 
-	let activeLineIndex = 0;
+	// Find the latest line that has started
+	let lastStartedIndex = 0;
 	for (let i = padded.length - 1; i >= 0; i--) {
 		const line = padded[i];
 		if (position >= line.startTime) {
-			// If this is a pause line and the next one starts at the same time and is NOT a pause line,
-			// prefer the next line (the text).
-			if (isPauseLine(line) && padded[i + 1] && position >= padded[i + 1].startTime && !isPauseLine(padded[i + 1])) {
+			// Prefer text line over pause line if they start at the same time
+			if (line.isPause && padded[i + 1] && position >= padded[i + 1].startTime && !padded[i + 1].isPause) {
 				continue;
 			}
-			activeLineIndex = i;
+			lastStartedIndex = i;
 			break;
 		}
 	}
 
-	useEffect(() => {
-		if (activeLineRef.current && (!initialScroll.current || isInViewport(activeLineRef.current))) {
-			activeLineRef.current.scrollIntoView({
+	let activeLineIndex = lastStartedIndex;
+	const currentCluster = padded[lastStartedIndex]?.cluster || [lastStartedIndex];
+
+	// Count how many lines in this cluster have started (ignoring if they finished)
+	const startedInCluster = [];
+	for (const idx of currentCluster) {
+		if (position >= padded[idx].startTime) {
+			startedInCluster.push(idx);
+		}
+	}
+
+	const playingInCluster = startedInCluster.filter((idx) => position <= padded[idx].endTime);
+
+	if (startedInCluster.length > 3) {
+		// Smooth Dynamic Focus: Stay exactly 2 lines behind the head to show progress but keep context.
+		activeLineIndex = startedInCluster[startedInCluster.length - 3];
+	} else {
+		// Shifting Anchor Focus: Focus on the first line that is STILL playing.
+		// Fallback to lastStartedIndex (the "bottom" of the group) when all finish to prevent jumping.
+		activeLineIndex = playingInCluster.length > 0 ? playingInCluster[0] : lastStartedIndex;
+	}
+
+	const latestStartedInCluster = startedInCluster[startedInCluster.length - 1];
+
+	react.useEffect(() => {
+		if (activeLineRef.current && pageRef.current) {
+			const linesBefore = CONFIG.visual["lines-before"];
+			const linesAfter = CONFIG.visual["lines-after"];
+			const lineHeight = parseFloat(getComputedStyle(pageRef.current).getPropertyValue("--lyrics-line-height")) || 50;
+			const focalPoint = pageRef.current.clientHeight / 2 + (linesBefore - linesAfter) * (lineHeight / 2);
+
+			pageRef.current.scrollTo({
+				top: activeLineRef.current.offsetTop - focalPoint + activeLineRef.current.clientHeight / 2,
 				behavior: initialScroll.current ? "smooth" : "auto",
-				block: "center",
 				inline: "nearest",
 			});
 			initialScroll.current = true;
 		}
 	}, [activeLineIndex]);
+
+	const anyLinePlaying = padded.some((line) => {
+		return line.startTime != null && line.endTime != null && position >= line.startTime && position <= line.endTime;
+	});
 
 	return react.createElement(
 		"div",
@@ -648,15 +792,18 @@ const SyncedExpandedLyricsPage = react.memo(({ lyrics, provider, copyright, isKa
 			className: "lyrics-lyricsContainer-LyricsUnsyncedPadding",
 		}),
 		padded.map(({ text, startTime, endTime, originalText, performer, background }, i) => {
+			const { isPause, nextStartTime } = padded[i];
+			const isFocused = i === activeLineIndex;
+
 			// Show idling indicator for the initial empty line
 			if (i === 0) {
 				const isInitialActive = activeLineIndex === 0;
-				const nextStart = findNextLineStartTime(padded, 0);
+				const pauseDuration = nextStartTime ? nextStartTime : 0;
 				return react.createElement(IdlingIndicator, {
 					key: i,
 					isActive: isInitialActive,
-					progress: nextStart ? position / nextStart : 0,
-					delay: nextStart ? nextStart / 3 : 0,
+					progress: pauseDuration > 0 ? position / pauseDuration : 0,
+					delay: pauseDuration > 0 ? pauseDuration / 3 : 0,
 					className: `lyrics-lyricsContainer-LyricsLine lyrics-lyricsContainer-LyricsLine-pause ${
 						isInitialActive ? "lyrics-lyricsContainer-LyricsLine-active" : "lyrics-lyricsContainer-LyricsLine-pause-inactive"
 					}`,
@@ -664,15 +811,11 @@ const SyncedExpandedLyricsPage = react.memo(({ lyrics, provider, copyright, isKa
 				});
 			}
 
-			const isFocused = i === activeLineIndex;
-			const isPause = isPauseLine(padded[i]);
-
 			// Calculate indicator state for pause lines
 			let indicatorEl = null;
 			if (isPause) {
-				const nextStart = findNextLineStartTime(padded, i);
 				const pauseStart = startTime || 0;
-				const pauseDuration = nextStart ? nextStart - pauseStart : 0;
+				const pauseDuration = nextStartTime ? nextStartTime - pauseStart : 0;
 				const progress = pauseDuration > 0 ? (position - pauseStart) / pauseDuration : 0;
 				indicatorEl = react.createElement(IdlingIndicator, {
 					isActive: isFocused,
@@ -683,7 +826,7 @@ const SyncedExpandedLyricsPage = react.memo(({ lyrics, provider, copyright, isKa
 
 			const isPlaying = startTime != null && endTime != null && position >= startTime && position <= endTime;
 			const isPast = (endTime != null && position > endTime) || (!isFocused && startTime != null && position > startTime);
-			const isActive = isFocused || isPlaying;
+			const isActive = isPlaying || (i === latestStartedInCluster && !anyLinePlaying);
 
 			let className = `lyrics-lyricsContainer-LyricsLine${isActive ? " lyrics-lyricsContainer-LyricsLine-active" : ""}${isPast ? " lyrics-lyricsContainer-LyricsLine-past" : ""}`;
 			if (isPause) {

@@ -167,7 +167,6 @@ const KaraokeLine = ({ text, isActive, position, startTime, endTime }) => {
 
 const SyncedLyricsPage = react.memo(({ lyrics = [], provider, copyright, isKara }) => {
 	const [position, setPosition] = useState(() => Spicetify.Player.getProgress() + CONFIG.visual["global-delay"] + CONFIG.visual.delay);
-	const [offset, setOffset] = useState(0);
 	const activeLineEle = useRef();
 	const lyricContainerEle = useRef();
 
@@ -303,9 +302,11 @@ const SyncedLyricsPage = react.memo(({ lyrics = [], provider, copyright, isKara 
 		if (activeLineEle.current && lyricContainerEle.current) {
 			const linesBefore = CONFIG.visual["lines-before"];
 			const linesAfter = CONFIG.visual["lines-after"];
-			const lineHeight = parseFloat(getComputedStyle(lyricContainerEle.current).getPropertyValue("--lyrics-line-height")) || 36;
+			const fontSize = Number(CONFIG.visual["font-size"]) || 32;
+			const lineHeight = fontSize + 4;
 			const focalPoint = lyricContainerEle.current.clientHeight / 2 + (linesBefore - linesAfter) * (lineHeight / 2);
-			setOffset(focalPoint - (activeLineEle.current.offsetTop + activeLineEle.current.clientHeight / 2));
+			const newOffset = focalPoint - (activeLineEle.current.offsetTop + activeLineEle.current.clientHeight / 2);
+			lyricContainerEle.current.style.setProperty("--offset", `${newOffset}px`);
 		}
 	};
 
@@ -313,7 +314,8 @@ const SyncedLyricsPage = react.memo(({ lyrics = [], provider, copyright, isKara 
 	const updateSpacerRef = useRef();
 	updateSpacerRef.current = () => {
 		if (!spacerRef.current || !lyricContainerEle.current) return;
-		const lyricsLineHeight = parseFloat(getComputedStyle(lyricContainerEle.current).getPropertyValue("--lyrics-line-height"));
+		const fontSize = Number(CONFIG.visual["font-size"]) || 32;
+		const lyricsLineHeight = fontSize + 4;
 		spacerRef.current.style.height = startLineIndex > 0 && lyricsLineHeight > 0 ? `${startLineIndex * lyricsLineHeight}px` : "0px";
 	};
 
@@ -359,9 +361,6 @@ const SyncedLyricsPage = react.memo(({ lyrics = [], provider, copyright, isKara 
 			"div",
 			{
 				className: "lyrics-lyricsContainer-SyncedLyrics",
-				style: {
-					"--offset": `${offset}px`,
-				},
 				key: lyricsId,
 			},
 			react.createElement("div", { ref: spacerRef, style: { height: "0px" }, "aria-hidden": "true" }),

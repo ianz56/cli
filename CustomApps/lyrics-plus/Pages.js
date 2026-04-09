@@ -255,9 +255,10 @@ const SyncedLyricsPage = react.memo(({ lyrics = [], provider, copyright, isKara 
 	const playingInCluster = startedInCluster.filter((idx) => position <= lyricWithEmptyLines[idx].endTime);
 
 	if (startedInCluster.length > 3) {
-		// Smooth Dynamic Focus: Stay behind the head but ensure we focus a PLAYING line if possible.
+		// Smooth Dynamic Focus: Stay behind the head but ensure we focus a PLAYING line.
 		const delayedIndex = startedInCluster[startedInCluster.length - 3];
-		activeLineIndex = playingInCluster.length > 0 ? Math.max(playingInCluster[0], delayedIndex) : lastStartedIndex;
+		// Only use delayedIndex if it is currently playing; otherwise, use the earliest playing line.
+		activeLineIndex = playingInCluster.length > 0 ? (playingInCluster.includes(delayedIndex) ? delayedIndex : playingInCluster[0]) : lastStartedIndex;
 	} else {
 		// Shifting Anchor Focus: Focus on the first line that is STILL playing.
 		// Fallback to lastStartedIndex (the "bottom" of the group) when all finish to prevent jumping.
@@ -751,8 +752,10 @@ const SyncedExpandedLyricsPage = react.memo(({ lyrics, provider, copyright, isKa
 	const playingInCluster = startedInCluster.filter((idx) => position <= padded[idx].endTime);
 
 	if (startedInCluster.length > 3) {
-		// Smooth Dynamic Focus: Stay exactly 2 lines behind the head to show progress but keep context.
-		activeLineIndex = startedInCluster[startedInCluster.length - 3];
+		// Smooth Dynamic Focus: Stay behind the head but ensure we focus a PLAYING line.
+		const delayedIndex = startedInCluster[startedInCluster.length - 3];
+		// Only use delayedIndex if it is currently playing; otherwise, use the earliest playing line.
+		activeLineIndex = playingInCluster.length > 0 ? (playingInCluster.includes(delayedIndex) ? delayedIndex : playingInCluster[0]) : lastStartedIndex;
 	} else {
 		// Shifting Anchor Focus: Focus on the first line that is STILL playing.
 		// Fallback to lastStartedIndex (the "bottom" of the group) when all finish to prevent jumping.
@@ -761,21 +764,21 @@ const SyncedExpandedLyricsPage = react.memo(({ lyrics, provider, copyright, isKa
 
 	const latestStartedInCluster = startedInCluster[startedInCluster.length - 1];
 
-	react.useEffect(() => {
+	react.useLayoutEffect(() => {
 		if (activeLineRef.current && pageRef.current) {
+			const fontSize = Number(CONFIG.visual["font-size"]) || 32;
+			const lineHeight = fontSize + 12; // Matching UnsyncedLyricsPage line-height
 			const linesBefore = CONFIG.visual["lines-before"];
 			const linesAfter = CONFIG.visual["lines-after"];
-			const lineHeight = parseFloat(getComputedStyle(pageRef.current).getPropertyValue("--lyrics-line-height")) || 50;
 			const focalPoint = pageRef.current.clientHeight / 2 + (linesBefore - linesAfter) * (lineHeight / 2);
 
 			pageRef.current.scrollTo({
 				top: activeLineRef.current.offsetTop - focalPoint + activeLineRef.current.clientHeight / 2,
 				behavior: initialScroll.current ? "smooth" : "auto",
-				inline: "nearest",
 			});
 			initialScroll.current = true;
 		}
-	}, [activeLineIndex]);
+	}, [activeLineIndex, lyricsId]);
 
 	const anyLinePlaying = padded.some((line) => {
 		return line.startTime != null && line.endTime != null && position >= line.startTime && position <= line.endTime;

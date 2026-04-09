@@ -86,6 +86,7 @@
 	grid-template-rows: 1fr 20px;
 	user-select: text;
 	text-align: var(--lyrics-align-text);
+	overflow-y: auto;
 }
 
 .lyrics-lyricsContainer-LyricsUnsyncedPadding {

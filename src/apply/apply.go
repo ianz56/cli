@@ -400,7 +400,7 @@ func insertNavLink(str string, appNameArray string) string {
 			// Global Navbar >= 1.2.60, greedy matching with enclosing brackets
 			`("global-nav-bar".*[[\w\$&|]*\(0,[a-zA-Z_\$][\w\$]*\.jsx\)\(\s*\w+,\s*\{\s*className:\w*\s*\}\s*\))\]`,
 			// Global Navbar >= 1.2.46, lazy matching
-			`("global-nav-bar".*?)(\(0,\s*[a-zA-Z_\$][\w\$]*\.jsx\))(\(\s*\w+,\s*\{\s*className:\w*\s*\}\s*\))`,
+			`("global-nav-bar".*?)(\(0,\s*[a-zA-Z_\$][\w\$]*\.jsx\))(\(\s*\w+,\s*\{\s*className:\s*(?:\w*|".*?")\s*\}\s*\))`,
 		},
 		func(index int, submatches ...string) string {
 			switch index {

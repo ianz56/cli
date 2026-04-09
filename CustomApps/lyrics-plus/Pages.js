@@ -256,8 +256,9 @@ const SyncedLyricsPage = react.memo(({ lyrics = [], provider, copyright, isKara 
 	const playingInCluster = startedInCluster.filter((idx) => position <= lyricWithEmptyLines[idx].endTime);
 
 	if (startedInCluster.length > 3) {
-		// Smooth Dynamic Focus: Stay exactly 2 lines behind the head to show progress but keep context.
-		activeLineIndex = startedInCluster[startedInCluster.length - 3];
+		// Smooth Dynamic Focus: Stay behind the head but ensure we focus a PLAYING line if possible.
+		const delayedIndex = startedInCluster[startedInCluster.length - 3];
+		activeLineIndex = playingInCluster.length > 0 ? Math.max(playingInCluster[0], delayedIndex) : lastStartedIndex;
 	} else {
 		// Shifting Anchor Focus: Focus on the first line that is STILL playing.
 		// Fallback to lastStartedIndex (the "bottom" of the group) when all finish to prevent jumping.
@@ -330,7 +331,7 @@ const SyncedLyricsPage = react.memo(({ lyrics = [], provider, copyright, isKara 
 		// before we read it for the --offset calculation.
 		updateSpacerRef.current();
 		computeOffsetRef.current();
-	}, [activeLineIndex, lyricsId]);
+	}, [activeLineIndex, lyricsId, startLineIndex, CONFIG.visual["lines-before"], CONFIG.visual["lines-after"]]);
 
 	const adjustedAnimationIndices = [];
 	let currentIndex = 0;

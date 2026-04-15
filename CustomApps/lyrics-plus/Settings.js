@@ -75,9 +75,9 @@ const RefreshTokenButton = ({ setTokenCallback }) => {
 			Spicetify.CosmosAsync.get("https://apic-appmobile.musixmatch.com/ws/1.1/token.get?app_id=mac-ios-v2.0", null, {
 				Host: "apic-appmobile.musixmatch.com",
 				authority: "apic-appmobile.musixmatch.com",
-				cookie: "x-mxm-token-guid=",
+				"X-Cookie": "x-mxm-token-guid=",
 				"x-mxm-app-version": "10.1.1",
-				"User-Agent": "Musixmatch/2025120901 CFNetwork/3860.300.31 Darwin/25.2.0",
+				"X-User-Agent": "Musixmatch/2025120901 CFNetwork/3860.300.31 Darwin/25.2.0",
 				"Accept-Language": "en-US,en;q=0.9",
 				Connection: "keep-alive",
 				Accept: "application/json",

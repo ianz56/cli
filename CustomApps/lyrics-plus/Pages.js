@@ -317,7 +317,15 @@ const SyncedLyricsPage = react.memo(({ lyrics = [], provider, copyright, isKara 
 		if (!spacerRef.current || !lyricContainerEle.current) return;
 		const fontSize = Number(CONFIG.visual["font-size"]) || 32;
 		const lyricsLineHeight = fontSize + 4;
-		spacerRef.current.style.height = startLineIndex > 0 && lyricsLineHeight > 0 ? `${startLineIndex * lyricsLineHeight}px` : "0px";
+		
+		let nonPauseCount = 0;
+		for (let k = 0; k < startLineIndex; k++) {
+			if (!lyricWithEmptyLines[k].isPause) {
+				nonPauseCount++;
+			}
+		}
+		
+		spacerRef.current.style.height = nonPauseCount > 0 && lyricsLineHeight > 0 ? `${nonPauseCount * lyricsLineHeight}px` : "0px";
 	};
 
 	react.useLayoutEffect(() => {

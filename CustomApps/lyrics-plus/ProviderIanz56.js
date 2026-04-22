@@ -22,6 +22,19 @@ const ProviderIanz56 = (() => {
 	}
 
 	/**
+	 * Split artist string into normalized parts
+	 * @param {string} s
+	 * @returns {string[]}
+	 */
+	function getArtistParts(s) {
+		if (!s) return [];
+		return s
+			.split(/\s*[,/&]\s*|\s+(?:feat\.?|ft\.?|and|with)\s+/i)
+			.map(normalize)
+			.filter((p) => p.length > 0);
+	}
+
+	/**
 	 * Fetch the index.json from GitHub
 	 * @returns {Promise<Array>}
 	 */
@@ -52,6 +65,7 @@ const ProviderIanz56 = (() => {
 	 */
 	function findMatch(artist, title, index) {
 		const normalizedArtist = normalize(artist);
+		const artistParts = getArtistParts(artist);
 		const normalizedTitle = normalize(title);
 
 		// First try exact match
@@ -63,14 +77,31 @@ const ProviderIanz56 = (() => {
 
 		if (match) return match;
 
+		// Try canonical artist match (same parts, any order)
+		if (artistParts.length > 1) {
+			const sortedArtist = [...artistParts].sort().join("|");
+			const canonicalMatch = index.find((entry) => {
+				const entryParts = getArtistParts(entry.artist);
+				if (entryParts.length !== artistParts.length) return false;
+				const sortedEntry = entryParts.sort().join("|");
+				return sortedArtist === sortedEntry && normalize(entry.title) === normalizedTitle;
+			});
+
+			if (canonicalMatch) return canonicalMatch;
+		}
+
 		// Try partial match (artist contains or title contains)
 		const partialMatches = index.filter((entry) => {
 			if (!normalizedArtist) return false;
 			const entryArtist = normalize(entry.artist);
 			const entryTitle = normalize(entry.title);
+
+			const entryParts = getArtistParts(entry.artist);
+			const artistOverlap =
+				artistParts.some((p) => entryParts.includes(p)) || entryParts.some((p) => artistParts.includes(p));
+
 			return (
-				entryArtist &&
-				(entryArtist.includes(normalizedArtist) || normalizedArtist.includes(entryArtist)) &&
+				(artistOverlap || entryArtist.includes(normalizedArtist) || normalizedArtist.includes(entryArtist)) &&
 				(entryTitle.includes(normalizedTitle) || normalizedTitle.includes(entryTitle))
 			);
 		});
@@ -79,12 +110,20 @@ const ProviderIanz56 = (() => {
 			const scoredMatches = partialMatches.map((entry) => {
 				const entryArtist = normalize(entry.artist);
 				const entryTitle = normalize(entry.title);
+				const entryParts = getArtistParts(entry.artist);
 				let score = 0;
 
 				// Artist score
-				if (entryArtist === normalizedArtist) score += 100;
-				else if (entryArtist.startsWith(normalizedArtist) || normalizedArtist.startsWith(entryArtist)) score += 80;
-				else score += 50;
+				if (entryArtist === normalizedArtist) {
+					score += 100;
+				} else {
+					const intersection = artistParts.filter((p) => entryParts.includes(p));
+					if (intersection.length > 0) {
+						score += 50 + (intersection.length / Math.max(artistParts.length, entryParts.length)) * 40;
+					} else if (entryArtist.includes(normalizedArtist) || normalizedArtist.includes(entryArtist)) {
+						score += 30;
+					}
+				}
 
 				// Title score
 				if (entryTitle === normalizedTitle) score += 200;
@@ -112,11 +151,21 @@ const ProviderIanz56 = (() => {
 
 			// If artist is empty, allow partial title match (legacy behavior)
 			if (!entryArtist) {
-				return entryTitle === normalizedTitle || entryTitle.includes(normalizedTitle) || normalizedTitle.includes(entryTitle);
+				return (
+					entryTitle === normalizedTitle ||
+					entryTitle.includes(normalizedTitle) ||
+					normalizedTitle.includes(entryTitle)
+				);
 			}
 
 			// Require exact title match AND some artist overlap
-			return entryTitle === normalizedTitle && (entryArtist.includes(normalizedArtist) || normalizedArtist.includes(entryArtist));
+			const entryParts = getArtistParts(entry.artist);
+			const artistOverlap =
+				artistParts.some((p) => entryParts.includes(p)) || entryParts.some((p) => artistParts.includes(p));
+			return (
+				entryTitle === normalizedTitle &&
+				(artistOverlap || entryArtist.includes(normalizedArtist) || normalizedArtist.includes(entryArtist))
+			);
 		});
 
 		if (titleOnlyMatches.length > 0) {

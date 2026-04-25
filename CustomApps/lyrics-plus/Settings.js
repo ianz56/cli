@@ -462,27 +462,40 @@ const ServiceOption = ({ item, onToggle, onSwap, isFirst = false, isLast = false
 		Object.keys(modesOn).length > 0 &&
 			react.createElement(
 				"div",
-				{ style: { display: "flex", flexDirection: "column", gap: "4px", marginTop: "8px" } },
-				Object.keys(modesOn).map(mode => 
-					react.createElement(
+				{ style: { display: "flex", justifyContent: "flex-start", gap: "16px", marginTop: "12px", alignItems: "center" } },
+				Object.keys(modesOn).map(mode => {
+					const labelMap = {
+						karaoke: "Kara",
+						synced: "Sync",
+						unsynced: "Unsync"
+					};
+					const label = labelMap[mode] || mode.charAt(0).toUpperCase() + mode.slice(1);
+					return react.createElement(
 						"div",
-						{ className: "setting-row", style: { minHeight: "32px", padding: "0" }, key: mode },
-						react.createElement("label", { className: "col description", style: { fontSize: "13px", opacity: 0.8 } }, `Enable ${mode.charAt(0).toUpperCase() + mode.slice(1)} Lyrics`),
+						{ style: { display: "flex", alignItems: "center", gap: "8px" }, key: mode },
 						react.createElement(
-							"div",
-							{ className: "col action" },
-							react.createElement(ButtonSVG, {
-								icon: Spicetify.SVGIcons.check,
-								active: modesOn[mode],
+							"label",
+							{
+								style: { fontSize: "13px", opacity: 0.8, cursor: "pointer", userSelect: "none" },
 								onClick: () => {
 									const newState = !modesOn[mode];
 									setModesOn({ ...modesOn, [mode]: newState });
 									if (onModeToggle) onModeToggle(item.name, mode, newState);
 								}
-							})
-						)
-					)
-				)
+							},
+							label
+						),
+						react.createElement(ButtonSVG, {
+							icon: Spicetify.SVGIcons.check,
+							active: modesOn[mode],
+							onClick: () => {
+								const newState = !modesOn[mode];
+								setModesOn({ ...modesOn, [mode]: newState });
+								if (onModeToggle) onModeToggle(item.name, mode, newState);
+							}
+						})
+					);
+				})
 			)
 	);
 };

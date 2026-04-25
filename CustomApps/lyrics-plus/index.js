@@ -705,6 +705,7 @@ class LyricsContainer extends react.Component {
 					ianz56Translation: null,
 					...tempState,
 					...translationOverrides,
+					mode: finalMode,
 					language: defaultLanguage,
 				},
 				() => {
@@ -717,7 +718,7 @@ class LyricsContainer extends react.Component {
 			return;
 		}
 
-		this.setState({ ...tempState, ...translationOverrides }, () => {
+		this.setState({ ...tempState, ...translationOverrides, mode: finalMode }, () => {
 			this.currentMusixmatchLanguage = CONFIG.visual["musixmatch-translation-language"];
 			if (shouldRefreshMusixmatchTranslation) {
 				this.refreshMusixmatchTranslation();
@@ -1391,7 +1392,7 @@ class LyricsContainer extends react.Component {
 					lockLink: CONFIG.modes[this.state.lockMode],
 					switchCallback: (label) => {
 						const mode = CONFIG.modes.findIndex((a) => a === label);
-						if (mode !== this.state.mode) {
+						if (mode !== this._resolvedMode) {
 							// If explicitMode is not set, moving the topBar will apply the default mode value for the selected song.
 							const info = this.infoFromTrack(Spicetify.Player.data.item);
 							if (info?.uri && CACHE[info?.uri]) {

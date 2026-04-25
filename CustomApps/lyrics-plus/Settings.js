@@ -387,9 +387,10 @@ const ServiceAction = ({ item, setTokenCallback }) => {
 	}
 };
 
-const ServiceOption = ({ item, onToggle, onSwap, isFirst = false, isLast = false, onTokenChange = null }) => {
+const ServiceOption = ({ item, onToggle, onSwap, isFirst = false, isLast = false, onTokenChange = null, onModeToggle = null }) => {
 	const [token, setToken] = useState(item.token);
 	const [active, setActive] = useState(item.on);
+	const [modesOn, setModesOn] = useState(item.modesOn || {});
 
 	const setTokenCallback = useCallback(
 		(token) => {
@@ -408,7 +409,7 @@ const ServiceOption = ({ item, onToggle, onSwap, isFirst = false, isLast = false
 
 	return react.createElement(
 		"div",
-		null,
+		{ style: { paddingBottom: "16px" } },
 		react.createElement(
 			"div",
 			{
@@ -457,11 +458,36 @@ const ServiceOption = ({ item, onToggle, onSwap, isFirst = false, isLast = false
 				placeholder: `Place your ${item.name} token here`,
 				value: token,
 				onChange: (event) => setTokenCallback(event.target.value),
-			})
+			}),
+		Object.keys(modesOn).length > 0 &&
+			react.createElement(
+				"div",
+				{ style: { display: "flex", flexDirection: "column", gap: "4px", marginTop: "8px" } },
+				Object.keys(modesOn).map(mode => 
+					react.createElement(
+						"div",
+						{ className: "setting-row", style: { minHeight: "32px", padding: "0" }, key: mode },
+						react.createElement("label", { className: "col description", style: { fontSize: "13px", opacity: 0.8 } }, `Enable ${mode.charAt(0).toUpperCase() + mode.slice(1)} Lyrics`),
+						react.createElement(
+							"div",
+							{ className: "col action" },
+							react.createElement(ButtonSVG, {
+								icon: Spicetify.SVGIcons.check,
+								active: modesOn[mode],
+								onClick: () => {
+									const newState = !modesOn[mode];
+									setModesOn({ ...modesOn, [mode]: newState });
+									if (onModeToggle) onModeToggle(item.name, mode, newState);
+								}
+							})
+						)
+					)
+				)
+			)
 	);
 };
 
-const ServiceList = ({ itemsList, onListChange = () => {}, onToggle = () => {}, onTokenChange = () => {} }) => {
+const ServiceList = ({ itemsList, onListChange = () => {}, onToggle = () => {}, onTokenChange = () => {}, onModeToggle = () => {} }) => {
 	const [items, setItems] = useState(itemsList);
 	const maxIndex = items.length - 1;
 
@@ -487,6 +513,7 @@ const ServiceList = ({ itemsList, onListChange = () => {}, onToggle = () => {}, 
 			onSwap,
 			onTokenChange,
 			onToggle,
+			onModeToggle,
 		});
 	});
 };
@@ -947,6 +974,12 @@ function openConfig() {
 			onTokenChange: (name, value) => {
 				CONFIG.providers[name].token = value;
 				localStorage.setItem(`${APP_NAME}:provider:${name}:token`, value);
+				reloadLyrics?.();
+			},
+			onModeToggle: (name, mode, value) => {
+				if (!CONFIG.providers[name].modesOn) return;
+				CONFIG.providers[name].modesOn[mode] = value;
+				localStorage.setItem(`${APP_NAME}:provider:${name}:on:${mode}`, value);
 				reloadLyrics?.();
 			},
 		}),

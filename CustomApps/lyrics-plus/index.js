@@ -75,33 +75,61 @@ const CONFIG = {
 			on: getConfig("lyrics-plus:provider:ianz56:on"),
 			desc: 'Lyrics sourced from <a href="https://github.com/ianz56">ianz56 repository</a>. Parses JSON formatted lyrics.',
 			modes: [KARAOKE, SYNCED, UNSYNCED],
+			modesOn: {
+				karaoke: getConfig("lyrics-plus:provider:ianz56:on:karaoke", true),
+				synced: getConfig("lyrics-plus:provider:ianz56:on:synced", true),
+				unsynced: getConfig("lyrics-plus:provider:ianz56:on:unsynced", true),
+			}
 		},
 		lrclib: {
 			on: getConfig("lyrics-plus:provider:lrclib:on"),
 			desc: "Lyrics sourced from lrclib.net. Supports both synced and unsynced lyrics. LRCLIB is a free and open-source lyrics provider.",
 			modes: [SYNCED, UNSYNCED],
+			modesOn: {
+				synced: getConfig("lyrics-plus:provider:lrclib:on:synced", true),
+				unsynced: getConfig("lyrics-plus:provider:lrclib:on:unsynced", true),
+			}
 		},
 		musixmatch: {
 			on: getConfig("lyrics-plus:provider:musixmatch:on"),
 			desc: "Fully compatible with Spotify. Requires a token that can be retrieved from the official Musixmatch app. If you have problems with retrieving lyrics, try refreshing the token by clicking <code>Refresh Token</code> button. You may need to be forced to use your own CORS Proxy to use this provider.",
 			token: localStorage.getItem("lyrics-plus:provider:musixmatch:token") || "21051986b9886beabe1ce01c3ce94c96319411f8f2c122676365e3",
 			modes: [KARAOKE, SYNCED, UNSYNCED],
+			modesOn: {
+				karaoke: getConfig("lyrics-plus:provider:musixmatch:on:karaoke", true),
+				synced: getConfig("lyrics-plus:provider:musixmatch:on:synced", true),
+				unsynced: getConfig("lyrics-plus:provider:musixmatch:on:unsynced", true),
+			}
 		},
 		apple: {
 			on: getConfig("lyrics-plus:provider:apple:on"),
 			desc: "Lyrics sourced from Apple Music via Paxsenix API. Supports syllable karaoke, synced, and unsynced lyrics. You can put your own <code>Paxsenix API key</code> to use this provider or leave blank to use the default API key. Go to <code>https://api.paxsenix.org</code> to get your personal API key.",
 			token: localStorage.getItem("lyrics-plus:provider:apple:token") || "",
 			modes: [KARAOKE, SYNCED, UNSYNCED],
+			modesOn: {
+				karaoke: getConfig("lyrics-plus:provider:apple:on:karaoke", true),
+				synced: getConfig("lyrics-plus:provider:apple:on:synced", true),
+				unsynced: getConfig("lyrics-plus:provider:apple:on:unsynced", true),
+			}
 		},
 		spotify: {
 			on: getConfig("lyrics-plus:provider:spotify:on"),
 			desc: "Lyrics sourced from official Spotify API.",
 			modes: [SYNCED, UNSYNCED],
+			modesOn: {
+				synced: getConfig("lyrics-plus:provider:spotify:on:synced", true),
+				unsynced: getConfig("lyrics-plus:provider:spotify:on:unsynced", true),
+			}
 		},
 		netease: {
 			on: getConfig("lyrics-plus:provider:netease:on", false),
 			desc: "Crowdsourced lyrics provider ran by Chinese developers and users.",
 			modes: [KARAOKE, SYNCED, UNSYNCED],
+			modesOn: {
+				karaoke: getConfig("lyrics-plus:provider:netease:on:karaoke", true),
+				synced: getConfig("lyrics-plus:provider:netease:on:synced", true),
+				unsynced: getConfig("lyrics-plus:provider:netease:on:unsynced", true),
+			}
 		},
 		genius: {
 			on: spotifyVersion >= "1.2.31" ? false : getConfig("lyrics-plus:provider:genius:on"),
@@ -112,6 +140,11 @@ const CONFIG = {
 			on: getConfig("lyrics-plus:provider:local:on"),
 			desc: "Provide lyrics from cache/local files loaded from previous Spotify sessions.",
 			modes: [KARAOKE, SYNCED, UNSYNCED],
+			modesOn: {
+				karaoke: getConfig("lyrics-plus:provider:local:on:karaoke", true),
+				synced: getConfig("lyrics-plus:provider:local:on:synced", true),
+				unsynced: getConfig("lyrics-plus:provider:local:on:unsynced", true),
+			}
 		},
 	},
 	providersOrder: localStorage.getItem("lyrics-plus:services-order"),
@@ -177,6 +210,14 @@ const emptyState = {
 	musixmatchTrackId: null,
 	musixmatchTranslationLanguage: null,
 	ianz56Translation: null,
+	providerKaraoke: null,
+	providerSynced: null,
+	providerUnsynced: null,
+	providerGenius: null,
+	copyrightKaraoke: null,
+	copyrightSynced: null,
+	copyrightUnsynced: null,
+	copyrightGenius: null,
 };
 
 let lyricContainerUpdate;
@@ -464,24 +505,53 @@ class LyricsContainer extends react.Component {
 				continue;
 			}
 
+			if (service.modesOn) {
+				if (!service.modesOn.karaoke) data.karaoke = null;
+				if (!service.modesOn.synced) data.synced = null;
+				if (!service.modesOn.unsynced) data.unsynced = null;
+			}
+
 			if (data.error || (!data.karaoke && !data.synced && !data.unsynced && !data.genius)) continue;
+			
 			if (mode === -1) {
-				finalData = data;
-				return finalData;
+				// In auto mode, if we found karaoke or synced, we can just return immediately
+				if (data.karaoke || data.synced) {
+					if (data.karaoke) { data.providerKaraoke = data.provider; data.copyrightKaraoke = data.copyright; }
+					if (data.synced) { data.providerSynced = data.provider; data.copyrightSynced = data.copyright; }
+					if (data.unsynced) { data.providerUnsynced = data.provider; data.copyrightUnsynced = data.copyright; }
+					if (data.genius) { data.providerGenius = data.provider; data.copyrightGenius = data.copyright; }
+					finalData = data;
+					return finalData;
+				}
+				// Otherwise (only unsynced/genius), we save it but keep looking for a better mode
+				if (!finalData.provider) {
+					if (data.unsynced) { data.providerUnsynced = data.provider; data.copyrightUnsynced = data.copyright; }
+					if (data.genius) { data.providerGenius = data.provider; data.copyrightGenius = data.copyright; }
+					finalData = data;
+				}
+				continue;
 			}
 
 			if (!data[currentMode]) {
 				for (const key in data) {
 					if (!finalData[key]) {
 						finalData[key] = data[key];
+						if (["karaoke", "synced", "unsynced", "genius"].includes(key)) {
+							finalData[`provider${key.charAt(0).toUpperCase() + key.slice(1)}`] = data.provider;
+							finalData[`copyright${key.charAt(0).toUpperCase() + key.slice(1)}`] = data.copyright;
+						}
 					}
 				}
 				continue;
 			}
 
 			for (const key in data) {
-				if (!finalData[key]) {
+				if (!finalData[key] || key === currentMode || key === "provider" || key === "copyright" || key === "uri" || key === "error") {
 					finalData[key] = data[key];
+					if (["karaoke", "synced", "unsynced", "genius"].includes(key) && (key === currentMode || !finalData[`provider${key.charAt(0).toUpperCase() + key.slice(1)}`])) {
+						finalData[`provider${key.charAt(0).toUpperCase() + key.slice(1)}`] = data.provider;
+						finalData[`copyright${key.charAt(0).toUpperCase() + key.slice(1)}`] = data.copyright;
+					}
 				}
 			}
 
@@ -1154,24 +1224,24 @@ class LyricsContainer extends react.Component {
 					isKara: true,
 					trackUri: this.state.uri,
 					lyrics: karaLyrics,
-					provider: this.state.provider,
-					copyright: this.state.copyright,
+					provider: this.state.providerKaraoke || this.state.provider,
+					copyright: this.state.copyrightKaraoke || this.state.copyright,
 					reRenderLyricsPage: this.reRenderLyricsPage,
 				});
 			} else if (mode === SYNCED && this.state.synced) {
 				activeItem = react.createElement(CONFIG.visual["synced-compact"] ? SyncedLyricsPage : SyncedExpandedLyricsPage, {
 					trackUri: this.state.uri,
 					lyrics: this.state.currentLyrics,
-					provider: this.state.provider,
-					copyright: this.state.copyright,
+					provider: this.state.providerSynced || this.state.provider,
+					copyright: this.state.copyrightSynced || this.state.copyright,
 					reRenderLyricsPage: this.reRenderLyricsPage,
 				});
 			} else if (mode === UNSYNCED && this.state.unsynced) {
 				activeItem = react.createElement(UnsyncedLyricsPage, {
 					trackUri: this.state.uri,
 					lyrics: this.state.currentLyrics,
-					provider: this.state.provider,
-					copyright: this.state.copyright,
+					provider: this.state.providerUnsynced || this.state.provider,
+					copyright: this.state.copyrightUnsynced || this.state.copyright,
 					reRenderLyricsPage: this.reRenderLyricsPage,
 				});
 			} else if (mode === GENIUS && this.state.genius) {
@@ -1179,8 +1249,8 @@ class LyricsContainer extends react.Component {
 					isSplitted: CONFIG.visual["dual-genius"],
 					trackUri: this.state.uri,
 					lyrics: this.state.genius,
-					provider: this.state.provider,
-					copyright: this.state.copyright,
+					provider: this.state.providerGenius || this.state.provider,
+					copyright: this.state.copyrightGenius || this.state.copyright,
 					versions: this.state.versions,
 					versionIndex: this.state.versionIndex,
 					onVersionChange: this.onVersionChange.bind(this),

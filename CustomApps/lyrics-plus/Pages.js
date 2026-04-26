@@ -1011,26 +1011,28 @@ const WordModePage = react.memo(({ lyrics, provider, copyright, fontSize = 32 })
 					currentWord = null;
 				}
 
-				if (!currentWord) {
-					currentWord = {
+				if (trimmed.length > 0) {
+					if (!currentWord) {
+						currentWord = {
+							text: trimmed,
+							start: accTime,
+							syllables: [],
+						};
+					} else {
+						currentWord.text += trimmed;
+					}
+
+					const fadeDuration = duration > 0 ? duration : 300;
+					currentWord.syllables.push({
 						text: trimmed,
 						start: accTime,
-						syllables: [],
-					};
-				} else {
-					currentWord.text += trimmed;
+						end: accTime + duration,
+						fadeDuration,
+					});
 				}
 
-				const fadeDuration = duration > 0 ? duration : 300;
-				currentWord.syllables.push({
-					text: trimmed,
-					start: accTime,
-					end: accTime + duration,
-					fadeDuration,
-				});
-
 				accTime += duration;
-				currentWord.end = accTime;
+				if (currentWord) currentWord.end = accTime;
 
 				if (hasTrailingSpace && currentWord && currentWord.syllables.length) {
 					words.push(currentWord);
@@ -1200,9 +1202,8 @@ const WordModePage = react.memo(({ lyrics, provider, copyright, fontSize = 32 })
 					"div",
 					{ className: "lyrics-wordMode-bgContainer" },
 					activeBackgrounds.map((bg, bgIdx) => {
-						// Apply same dynamic overflow prevention for backgrounds
-						const bgSafeCqw = (138 / Math.max(1, bg.charCount)).toFixed(2);
-						const bgFontSizeStr = `min(${bgFontSizePx}px, ${(bgFontSizePx / 6).toFixed(2)}cqw, ${bgSafeCqw}cqw)`;
+						// Background vocals should have a consistent size and just wrap if long
+						const bgFontSizeStr = `${bgFontSizePx}px`;
 
 						return react.createElement(
 							"div",

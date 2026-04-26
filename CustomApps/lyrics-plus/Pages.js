@@ -947,20 +947,26 @@ const wordModeHashCode = (str) => {
 	return Math.abs(hash);
 };
 
-const WORD_MODE_SIZES = [48, 56, 64, 72, 80, 88, 96];
+const WORD_MODE_SIZES = [40, 48, 56, 64, 72, 80, 88];
 
-const wordModeGetRowConfig = (rowIndex) => {
+const wordModeGetRowConfig = (rowIndex, userFontSize) => {
 	const hash = wordModeHashCode("row:" + rowIndex);
-	const fontSize = WORD_MODE_SIZES[hash % WORD_MODE_SIZES.length];
-	// Big font = fewer words per row
+	const baseSize = WORD_MODE_SIZES[hash % WORD_MODE_SIZES.length];
+	
+	// Scale size based on user font size preference (default ~32 in normal karaoke)
+	const scale = userFontSize / 32;
+	const fontSize = Math.round(baseSize * scale);
+
+	// Big font = fewer words per row. We scale the thresholds as well so layout ratio is maintained.
 	let maxWords;
-	if (fontSize >= 88) maxWords = 1;
-	else if (fontSize >= 64) maxWords = 2;
+	if (fontSize >= 80 * scale) maxWords = 1;
+	else if (fontSize >= 56 * scale) maxWords = 2;
 	else maxWords = 3;
+
 	return { fontSize, maxWords };
 };
 
-const WordModePage = react.memo(({ lyrics, provider, copyright }) => {
+const WordModePage = react.memo(({ lyrics, provider, copyright, fontSize = 32 }) => {
 	const [position, setPosition] = useState(() => Spicetify.Player.getProgress() + CONFIG.visual["global-delay"] + CONFIG.visual.delay);
 
 	useTrackPosition(() => {
@@ -972,25 +978,18 @@ const WordModePage = react.memo(({ lyrics, provider, copyright }) => {
 	});
 
 	// Build: lines -> rows (max 3 words) -> words (with syllables inside)
-	const lineData = useMemo(() => {
-		if (!lyrics || !lyrics.length) return [];
+	const parsedData = useMemo(() => {
+		if (!lyrics || !lyrics.length) return { lines: [], backgrounds: [] };
 		const lines = [];
+		const backgrounds = [];
 
-		for (let lineIdx = 0; lineIdx < lyrics.length; lineIdx++) {
-			const line = lyrics[lineIdx];
-			if (!line || !Array.isArray(line.text)) continue;
-			const lineText = line.text
-				.map((w) => (typeof w === "object" ? w.word : w))
-				.join("")
-				.trim();
-			if (!lineText || lineText === "\u266A") continue;
-
+		const buildWords = (syllablesArray, startTime) => {
 			const words = [];
-			let accTime = line.startTime || 0;
+			let accTime = startTime || 0;
 			let currentWord = null;
 
-			for (let sIdx = 0; sIdx < line.text.length; sIdx++) {
-				const syllable = line.text[sIdx];
+			for (let sIdx = 0; sIdx < syllablesArray.length; sIdx++) {
+				const syllable = syllablesArray[sIdx];
 				const rawStr = typeof syllable === "object" ? syllable.word : syllable;
 				const duration = typeof syllable === "object" ? syllable.time || 0 : 0;
 
@@ -1047,19 +1046,26 @@ const WordModePage = react.memo(({ lyrics, provider, copyright }) => {
 			if (currentWord && currentWord.syllables.length) {
 				words.push(currentWord);
 			}
+			return words;
+		};
 
+		for (let lineIdx = 0; lineIdx < lyrics.length; lineIdx++) {
+			const line = lyrics[lineIdx];
+			if (!line || !Array.isArray(line.text)) continue;
+			
+			const words = buildWords(line.text, line.startTime);
 			if (words.length === 0) continue;
 
 			const rows = [];
 			let i = 0;
 			while (i < words.length) {
 				const rowIdx = lines.reduce((sum, l) => sum + l.rows.length, 0) + rows.length;
-				const { fontSize, maxWords } = wordModeGetRowConfig(rowIdx);
+				const { fontSize: rowFontSize, maxWords } = wordModeGetRowConfig(rowIdx, fontSize);
 				const rowWords = words.slice(i, i + maxWords);
 				rows.push({
 					words: rowWords,
 					start: rowWords[0].start,
-					fontSize,
+					fontSize: rowFontSize,
 					rowIndex: rowIdx,
 				});
 				i += maxWords;
@@ -1071,38 +1077,62 @@ const WordModePage = react.memo(({ lyrics, provider, copyright }) => {
 				endTime: line.endTime || words[words.length - 1].end,
 				rows,
 			});
+
+			// Process background vocals independently
+			if (line.background && Array.isArray(line.background)) {
+				// The syllables in line.background include a gap from line.startTime!
+				// So we must accumulate from line.startTime to avoid double-adding the gap.
+				const bgWords = buildWords(line.background, line.startTime || 0);
+				if (bgWords.length > 0) {
+					// Use specific end time or default to the end of the last parsed background word + a tiny padding
+					const bgEndTime = line.backgroundEndTime || bgWords[bgWords.length - 1].end;
+					const bgStartTime = line.backgroundStartTime || bgWords[0].start;
+					backgrounds.push({
+						startTime: bgStartTime,
+						endTime: bgEndTime,
+						words: bgWords
+					});
+				}
+			}
 		}
 
-		return lines;
-	}, [lyrics]);
+		return { lines, backgrounds };
+	}, [lyrics, fontSize]);
 
 	// Find current line and visible rows
 	const visibleState = useMemo(() => {
-		if (!lineData.length) return { currentLineIdx: -1, visibleRows: [] };
+		if (!parsedData.lines.length) return { currentLineIdx: -1, visibleRows: [], activeBackgrounds: [] };
+
+		const { lines, backgrounds } = parsedData;
 
 		let currentLineIdx = -1;
-		for (let i = lineData.length - 1; i >= 0; i--) {
-			if (position >= lineData[i].startTime) {
+		for (let i = lines.length - 1; i >= 0; i--) {
+			if (position >= lines[i].startTime) {
 				currentLineIdx = i;
 				break;
 			}
 		}
 
-		if (currentLineIdx === -1) return { currentLineIdx: -1, visibleRows: [] };
-
-		const currentLine = lineData[currentLineIdx];
 		const visibleRows = [];
-		for (const row of currentLine.rows) {
-			const visibleWords = row.words.filter((w) => position >= w.start);
-			if (visibleWords.length > 0) {
-				visibleRows.push({ ...row, visibleWords });
+		if (currentLineIdx !== -1) {
+			const currentLine = lines[currentLineIdx];
+			for (const row of currentLine.rows) {
+				const visibleWords = row.words.filter((w) => position >= w.start);
+				if (visibleWords.length > 0) {
+					visibleRows.push({ ...row, visibleWords });
+				}
 			}
 		}
+		
+		// Background vocals show independently based on their exact absolute timing
+		const activeBackgrounds = backgrounds.filter((bg) => position >= bg.startTime && position <= bg.endTime + 300);
 
-		return { currentLineIdx, visibleRows };
-	}, [lineData, position]);
+		return { currentLineIdx, visibleRows, activeBackgrounds };
+	}, [parsedData, position]);
 
-	const { currentLineIdx, visibleRows } = visibleState;
+	const { currentLineIdx, visibleRows, activeBackgrounds } = visibleState;
+	
+	const bgFontSize = Math.round(32 * (fontSize / 32));
 
 	return react.createElement(
 		"div",
@@ -1148,6 +1178,49 @@ const WordModePage = react.memo(({ lyrics, provider, copyright }) => {
 									syl.text
 								);
 							})
+						)
+					)
+				)
+			),
+			activeBackgrounds.length > 0 && react.createElement(
+				"div",
+				{ className: "lyrics-wordMode-bgContainer" },
+				activeBackgrounds.map((bg, bgIdx) =>
+					react.createElement(
+						"div",
+						{
+							key: `bgGroup-${bgIdx}`,
+							className: "lyrics-wordMode-bgStack",
+							style: { fontSize: `${bgFontSize}px` },
+						},
+						bg.words.map((w, wIdx) =>
+							react.createElement(
+								"span",
+								{
+									key: `bg-${wIdx}`,
+									className: "lyrics-wordMode-word",
+									onClick: () => {
+										if (w.start) Spicetify.Player.seek(w.start);
+									},
+								},
+								wIdx > 0 ? " " : null,
+								w.syllables.map((syl, sIdx) => {
+									const isVisible = position >= syl.start;
+									return react.createElement(
+										"span",
+										{
+											key: sIdx,
+											className: isVisible
+												? "lyrics-wordMode-bg-syl lyrics-wordMode-bg-syl--active"
+												: "lyrics-wordMode-bg-syl",
+											style: isVisible
+												? { "--syl-fade-duration": `${syl.fadeDuration}ms` }
+												: undefined,
+										},
+										syl.text
+									);
+								})
+							)
 						)
 					)
 				)

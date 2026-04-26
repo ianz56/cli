@@ -1227,6 +1227,7 @@ class LyricsContainer extends react.Component {
 						lyrics: karaLyrics,
 						provider: this.state.providerKaraoke || this.state.provider,
 						copyright: this.state.copyrightKaraoke || this.state.copyright,
+						fontSize: CONFIG.visual["font-size"] || 32,
 					});
 				} else {
 					activeItem = react.createElement(CONFIG.visual["synced-compact"] ? SyncedLyricsPage : SyncedExpandedLyricsPage, {

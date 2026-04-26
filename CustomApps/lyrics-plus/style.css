@@ -877,6 +877,22 @@ div.lyrics-tabBar-headerItemLink {
 	padding: 2px 0;
 }
 
+.lyrics-wordMode-bgContainer {
+	width: 100%;
+	margin-top: 12px;
+}
+
+.lyrics-wordMode-bgStack {
+	font-weight: 900;
+	letter-spacing: -0.02em;
+	line-height: 1.1;
+	text-transform: uppercase;
+	color: var(--lyrics-color-active);
+	white-space: pre-wrap;
+	padding: 2px 0;
+	max-width: 100%;
+}
+
 .lyrics-wordMode-word {
 	display: inline;
 	cursor: pointer;
@@ -891,9 +907,27 @@ div.lyrics-tabBar-headerItemLink {
 	animation: wordModeSylIn var(--syl-fade-duration, 300ms) ease-out both;
 }
 
+.lyrics-wordMode-bg-syl {
+	opacity: 0.3;
+	display: inline;
+}
+
+.lyrics-wordMode-bg-syl.lyrics-wordMode-bg-syl--active {
+	animation: wordModeBgSylIn var(--syl-fade-duration, 300ms) ease-out both;
+}
+
 @keyframes wordModeSylIn {
 	0% {
 		opacity: 0;
+	}
+	100% {
+		opacity: 1;
+	}
+}
+
+@keyframes wordModeBgSylIn {
+	0% {
+		opacity: 0.3;
 	}
 	100% {
 		opacity: 1;

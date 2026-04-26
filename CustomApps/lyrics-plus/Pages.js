@@ -1153,14 +1153,9 @@ const WordModePage = react.memo(({ lyrics, provider, copyright }) => {
 				)
 			)
 		),
-		react.createElement(
-			"div",
-			{ className: "lyrics-wordMode-credit" },
-			react.createElement(CreditFooter, { provider, copyright })
-		)
+		react.createElement(CreditFooter, { provider, copyright })
 	);
 });
-
 
 const UnsyncedLyricsPage = react.memo(({ lyrics, provider, copyright }) => {
 	return react.createElement(

@@ -851,15 +851,11 @@ div.lyrics-tabBar-headerItemLink {
 
 /* ===== Word Mode (Instagram-style) ===== */
 .lyrics-wordMode-container {
+	display: grid;
 	grid-area: 1 / 1 / -1 / -1;
-	display: flex;
-	flex-direction: column;
-	justify-content: flex-start;
-	align-items: flex-start;
-	padding: 60px 80px;
+	grid-template-rows: 1fr 30px;
 	overflow: hidden;
 	user-select: text;
-	position: relative;
 }
 
 .lyrics-wordMode-wordsStack {
@@ -867,6 +863,8 @@ div.lyrics-tabBar-headerItemLink {
 	flex-direction: column;
 	align-items: flex-start;
 	gap: 4px;
+	padding: 8vh 80px 20px;
+	grid-row: 1;
 }
 
 .lyrics-wordMode-row {
@@ -902,19 +900,8 @@ div.lyrics-tabBar-headerItemLink {
 	}
 }
 
-.lyrics-wordMode-credit {
-	position: absolute;
-	bottom: 32px;
-	left: 80px;
-	right: 80px;
-}
-
 @media (max-width: 768px) {
-	.lyrics-wordMode-container {
-		padding: 40px 40px;
-	}
-	.lyrics-wordMode-credit {
-		left: 40px;
-		right: 40px;
+	.lyrics-wordMode-wordsStack {
+		padding: 8vh 40px 20px;
 	}
 }

@@ -855,6 +855,7 @@ div.lyrics-tabBar-headerItemLink {
 	grid-area: 1 / 1 / -1 / -1;
 	grid-template-rows: 1fr 30px;
 	overflow: hidden;
+	container-type: inline-size;
 	user-select: text;
 }
 
@@ -873,8 +874,9 @@ div.lyrics-tabBar-headerItemLink {
 	line-height: 1.1;
 	text-transform: uppercase;
 	color: var(--lyrics-color-active);
-	white-space: nowrap;
+	white-space: pre-wrap;
 	padding: 2px 0;
+	max-width: 100%;
 }
 
 .lyrics-wordMode-bgContainer {

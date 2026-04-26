@@ -985,6 +985,7 @@ const WordModePage = react.memo(({ lyrics, provider, copyright, fontSize = 32 })
 		if (!lyrics || !lyrics.length) return { lines: [], backgrounds: [] };
 		const lines = [];
 		const backgrounds = [];
+		let runningRowCount = 0;
 
 		const buildWords = (syllablesArray, startTime) => {
 			const words = [];
@@ -1005,41 +1006,31 @@ const WordModePage = react.memo(({ lyrics, provider, copyright, fontSize = 32 })
 				const hasTrailingSpace = /\s$/.test(rawStr);
 				const trimmed = rawStr.trim();
 
-				if (!trimmed) {
-					if (currentWord && currentWord.syllables.length) {
-						words.push(currentWord);
-						currentWord = null;
-					}
-					accTime += duration;
-					continue;
-				}
-
 				if (hasLeadingSpace && currentWord && currentWord.syllables.length) {
 					words.push(currentWord);
 					currentWord = null;
 				}
 
-				const sylData = {
-					text: trimmed,
-					start: accTime,
-					end: accTime + duration,
-					fadeDuration: Math.max(100, duration),
-				};
-
 				if (!currentWord) {
 					currentWord = {
 						text: trimmed,
 						start: accTime,
-						end: accTime + duration,
-						syllables: [sylData],
+						syllables: [],
 					};
 				} else {
 					currentWord.text += trimmed;
-					currentWord.end = accTime + duration;
-					currentWord.syllables.push(sylData);
 				}
 
+				const fadeDuration = duration > 0 ? duration : 300;
+				currentWord.syllables.push({
+					text: trimmed,
+					start: accTime,
+					end: accTime + duration,
+					fadeDuration,
+				});
+
 				accTime += duration;
+				currentWord.end = accTime;
 
 				if (hasTrailingSpace && currentWord && currentWord.syllables.length) {
 					words.push(currentWord);
@@ -1061,7 +1052,7 @@ const WordModePage = react.memo(({ lyrics, provider, copyright, fontSize = 32 })
 				const rows = [];
 				let i = 0;
 				while (i < words.length) {
-					const rowIdx = lines.reduce((sum, l) => sum + l.rows.length, 0) + rows.length;
+					const rowIdx = runningRowCount + rows.length;
 					const { basePx, baseCqw, maxWords } = wordModeGetRowConfig(rowIdx, fontSize);
 					const rowWords = words.slice(i, i + maxWords);
 
@@ -1084,6 +1075,8 @@ const WordModePage = react.memo(({ lyrics, provider, copyright, fontSize = 32 })
 					});
 					i += maxWords;
 				}
+
+				runningRowCount += rows.length;
 
 				lines.push({
 					lineIdx,
@@ -1158,8 +1151,6 @@ const WordModePage = react.memo(({ lyrics, provider, copyright, fontSize = 32 })
 	const { currentLineIdx, visibleRows, activeBackgrounds } = visibleState;
 
 	const bgFontSizePx = Math.round(28 * (fontSize / 32));
-	const bgFontSize = `min(${bgFontSizePx}px, ${(bgFontSizePx / 6).toFixed(2)}cqw)`;
-
 	return react.createElement(
 		"div",
 		{ className: "lyrics-wordMode-container" },

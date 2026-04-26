@@ -868,7 +868,8 @@ div.lyrics-tabBar-headerItemLink {
 	grid-row: 1;
 }
 
-.lyrics-wordMode-row {
+.lyrics-wordMode-row,
+.lyrics-wordMode-bgStack {
 	font-weight: 900;
 	letter-spacing: -0.02em;
 	line-height: 1.1;
@@ -882,17 +883,6 @@ div.lyrics-tabBar-headerItemLink {
 .lyrics-wordMode-bgContainer {
 	width: 100%;
 	margin-top: 12px;
-}
-
-.lyrics-wordMode-bgStack {
-	font-weight: 900;
-	letter-spacing: -0.02em;
-	line-height: 1.1;
-	text-transform: uppercase;
-	color: var(--lyrics-color-active);
-	white-space: pre-wrap;
-	padding: 2px 0;
-	max-width: 100%;
 }
 
 .lyrics-wordMode-word {

@@ -937,6 +937,224 @@ const SyncedExpandedLyricsPage = react.memo(({ lyrics, provider, copyright, isKa
 	);
 });
 
+// ===== Word Mode (Instagram-style per-word lyrics) =====
+
+const wordModeHashCode = (str) => {
+	let hash = 5381;
+	for (let i = 0; i < str.length; i++) {
+		hash = ((hash << 5) + hash + str.charCodeAt(i)) | 0;
+	}
+	return Math.abs(hash);
+};
+
+const WORD_MODE_SIZES = [48, 56, 64, 72, 80, 88, 96];
+
+const wordModeGetRowSize = (rowIndex) => {
+	const hash = wordModeHashCode("row:" + rowIndex);
+	return WORD_MODE_SIZES[hash % WORD_MODE_SIZES.length];
+};
+
+const WORD_MODE_MAX_PER_ROW = 3;
+
+const WordModePage = react.memo(({ lyrics, provider, copyright }) => {
+	const [position, setPosition] = useState(() => Spicetify.Player.getProgress() + CONFIG.visual["global-delay"] + CONFIG.visual.delay);
+
+	useTrackPosition(() => {
+		const newPos = Spicetify.Player.getProgress();
+		const delay = CONFIG.visual["global-delay"] + CONFIG.visual.delay;
+		if (Math.abs(newPos + delay - position) > 20) {
+			setPosition(newPos + delay);
+		}
+	});
+
+	// Build: lines -> rows (max 3 words) -> words (with syllables inside)
+	const lineData = useMemo(() => {
+		if (!lyrics || !lyrics.length) return [];
+		const lines = [];
+
+		for (let lineIdx = 0; lineIdx < lyrics.length; lineIdx++) {
+			const line = lyrics[lineIdx];
+			if (!line || !Array.isArray(line.text)) continue;
+			const lineText = line.text
+				.map((w) => (typeof w === "object" ? w.word : w))
+				.join("")
+				.trim();
+			if (!lineText || lineText === "\u266A") continue;
+
+			const words = [];
+			let accTime = line.startTime || 0;
+			let currentWord = null;
+
+			for (let sIdx = 0; sIdx < line.text.length; sIdx++) {
+				const syllable = line.text[sIdx];
+				const rawStr = typeof syllable === "object" ? syllable.word : syllable;
+				const duration = typeof syllable === "object" ? syllable.time || 0 : 0;
+
+				if (!rawStr || rawStr.length === 0) {
+					accTime += duration;
+					continue;
+				}
+
+				const hasLeadingSpace = /^\s/.test(rawStr);
+				const hasTrailingSpace = /\s$/.test(rawStr);
+				const trimmed = rawStr.trim();
+
+				if (!trimmed) {
+					if (currentWord && currentWord.syllables.length) {
+						words.push(currentWord);
+						currentWord = null;
+					}
+					accTime += duration;
+					continue;
+				}
+
+				if (hasLeadingSpace && currentWord && currentWord.syllables.length) {
+					words.push(currentWord);
+					currentWord = null;
+				}
+
+				const sylData = {
+					text: trimmed,
+					start: accTime,
+					end: accTime + duration,
+					fadeDuration: Math.max(150, Math.min(duration * 0.8, 400)),
+				};
+
+				if (!currentWord) {
+					currentWord = {
+						text: trimmed,
+						start: accTime,
+						end: accTime + duration,
+						syllables: [sylData],
+					};
+				} else {
+					currentWord.text += trimmed;
+					currentWord.end = accTime + duration;
+					currentWord.syllables.push(sylData);
+				}
+
+				accTime += duration;
+
+				if (hasTrailingSpace && currentWord && currentWord.syllables.length) {
+					words.push(currentWord);
+					currentWord = null;
+				}
+			}
+			if (currentWord && currentWord.syllables.length) {
+				words.push(currentWord);
+			}
+
+			if (words.length === 0) continue;
+
+			const rows = [];
+			for (let i = 0; i < words.length; i += WORD_MODE_MAX_PER_ROW) {
+				const rowWords = words.slice(i, i + WORD_MODE_MAX_PER_ROW);
+				const rowIdx = lines.reduce((sum, l) => sum + l.rows.length, 0) + rows.length;
+				rows.push({
+					words: rowWords,
+					start: rowWords[0].start,
+					fontSize: wordModeGetRowSize(rowIdx),
+					rowIndex: rowIdx,
+				});
+			}
+
+			lines.push({
+				lineIdx,
+				startTime: line.startTime || 0,
+				endTime: line.endTime || words[words.length - 1].end,
+				rows,
+			});
+		}
+
+		return lines;
+	}, [lyrics]);
+
+	// Find current line and visible rows
+	const visibleState = useMemo(() => {
+		if (!lineData.length) return { currentLineIdx: -1, visibleRows: [] };
+
+		let currentLineIdx = -1;
+		for (let i = lineData.length - 1; i >= 0; i--) {
+			if (position >= lineData[i].startTime) {
+				currentLineIdx = i;
+				break;
+			}
+		}
+
+		if (currentLineIdx === -1) return { currentLineIdx: -1, visibleRows: [] };
+
+		const currentLine = lineData[currentLineIdx];
+		const visibleRows = [];
+		for (const row of currentLine.rows) {
+			const visibleWords = row.words.filter((w) => position >= w.start);
+			if (visibleWords.length > 0) {
+				visibleRows.push({ ...row, visibleWords });
+			}
+		}
+
+		return { currentLineIdx, visibleRows };
+	}, [lineData, position]);
+
+	const { currentLineIdx, visibleRows } = visibleState;
+
+	return react.createElement(
+		"div",
+		{ className: "lyrics-wordMode-container" },
+		react.createElement(
+			"div",
+			{
+				className: "lyrics-wordMode-wordsStack",
+				key: `line-${currentLineIdx}`,
+			},
+			visibleRows.map((row) =>
+				react.createElement(
+					"div",
+					{
+						key: `row-${row.rowIndex}`,
+						className: "lyrics-wordMode-row",
+						style: { fontSize: `${row.fontSize}px` },
+					},
+					row.visibleWords.map((w, wIdx) =>
+						react.createElement(
+							"span",
+							{
+								key: `w-${row.rowIndex}-${wIdx}`,
+								className: "lyrics-wordMode-word",
+								onClick: () => {
+									if (w.start) Spicetify.Player.seek(w.start);
+								},
+							},
+							wIdx > 0 ? " " : null,
+							w.syllables.map((syl, sIdx) => {
+								const isVisible = position >= syl.start;
+								return react.createElement(
+									"span",
+									{
+										key: sIdx,
+										className: isVisible
+											? "lyrics-wordMode-syl lyrics-wordMode-syl--active"
+											: "lyrics-wordMode-syl",
+										style: isVisible
+											? { "--syl-fade-duration": `${syl.fadeDuration}ms` }
+											: undefined,
+									},
+									syl.text
+								);
+							})
+						)
+					)
+				)
+			)
+		),
+		react.createElement(
+			"div",
+			{ className: "lyrics-wordMode-credit" },
+			react.createElement(CreditFooter, { provider, copyright })
+		)
+	);
+});
+
+
 const UnsyncedLyricsPage = react.memo(({ lyrics, provider, copyright }) => {
 	return react.createElement(
 		"div",

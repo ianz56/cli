@@ -67,6 +67,7 @@ const CONFIG = {
 		"synced-compact": getConfig("lyrics-plus:visual:synced-compact"),
 		"synced-background-inline": getConfig("lyrics-plus:visual:synced-background-inline", true),
 		"dual-genius": getConfig("lyrics-plus:visual:dual-genius"),
+		"word-mode": getConfig("lyrics-plus:visual:word-mode", false),
 		"global-delay": Number(localStorage.getItem("lyrics-plus:visual:global-delay")) || 0,
 		delay: 0,
 	},
@@ -1221,14 +1222,22 @@ class LyricsContainer extends react.Component {
 						return line;
 					});
 				}
-				activeItem = react.createElement(CONFIG.visual["synced-compact"] ? SyncedLyricsPage : SyncedExpandedLyricsPage, {
-					isKara: true,
-					trackUri: this.state.uri,
-					lyrics: karaLyrics,
-					provider: this.state.providerKaraoke || this.state.provider,
-					copyright: this.state.copyrightKaraoke || this.state.copyright,
-					reRenderLyricsPage: this.reRenderLyricsPage,
-				});
+				if (CONFIG.visual["word-mode"]) {
+					activeItem = react.createElement(WordModePage, {
+						lyrics: karaLyrics,
+						provider: this.state.providerKaraoke || this.state.provider,
+						copyright: this.state.copyrightKaraoke || this.state.copyright,
+					});
+				} else {
+					activeItem = react.createElement(CONFIG.visual["synced-compact"] ? SyncedLyricsPage : SyncedExpandedLyricsPage, {
+						isKara: true,
+						trackUri: this.state.uri,
+						lyrics: karaLyrics,
+						provider: this.state.providerKaraoke || this.state.provider,
+						copyright: this.state.copyrightKaraoke || this.state.copyright,
+						reRenderLyricsPage: this.reRenderLyricsPage,
+					});
+				}
 			} else if (mode === SYNCED && this.state.synced) {
 				activeItem = react.createElement(CONFIG.visual["synced-compact"] ? SyncedLyricsPage : SyncedExpandedLyricsPage, {
 					trackUri: this.state.uri,

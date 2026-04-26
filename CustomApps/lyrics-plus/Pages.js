@@ -949,12 +949,16 @@ const wordModeHashCode = (str) => {
 
 const WORD_MODE_SIZES = [48, 56, 64, 72, 80, 88, 96];
 
-const wordModeGetRowSize = (rowIndex) => {
+const wordModeGetRowConfig = (rowIndex) => {
 	const hash = wordModeHashCode("row:" + rowIndex);
-	return WORD_MODE_SIZES[hash % WORD_MODE_SIZES.length];
+	const fontSize = WORD_MODE_SIZES[hash % WORD_MODE_SIZES.length];
+	// Big font = fewer words per row
+	let maxWords;
+	if (fontSize >= 88) maxWords = 1;
+	else if (fontSize >= 64) maxWords = 2;
+	else maxWords = 3;
+	return { fontSize, maxWords };
 };
-
-const WORD_MODE_MAX_PER_ROW = 3;
 
 const WordModePage = react.memo(({ lyrics, provider, copyright }) => {
 	const [position, setPosition] = useState(() => Spicetify.Player.getProgress() + CONFIG.visual["global-delay"] + CONFIG.visual.delay);
@@ -1017,7 +1021,7 @@ const WordModePage = react.memo(({ lyrics, provider, copyright }) => {
 					text: trimmed,
 					start: accTime,
 					end: accTime + duration,
-					fadeDuration: Math.max(150, Math.min(duration * 0.8, 400)),
+					fadeDuration: Math.max(100, duration),
 				};
 
 				if (!currentWord) {
@@ -1047,15 +1051,18 @@ const WordModePage = react.memo(({ lyrics, provider, copyright }) => {
 			if (words.length === 0) continue;
 
 			const rows = [];
-			for (let i = 0; i < words.length; i += WORD_MODE_MAX_PER_ROW) {
-				const rowWords = words.slice(i, i + WORD_MODE_MAX_PER_ROW);
+			let i = 0;
+			while (i < words.length) {
 				const rowIdx = lines.reduce((sum, l) => sum + l.rows.length, 0) + rows.length;
+				const { fontSize, maxWords } = wordModeGetRowConfig(rowIdx);
+				const rowWords = words.slice(i, i + maxWords);
 				rows.push({
 					words: rowWords,
 					start: rowWords[0].start,
-					fontSize: wordModeGetRowSize(rowIdx),
+					fontSize,
 					rowIndex: rowIdx,
 				});
+				i += maxWords;
 			}
 
 			lines.push({

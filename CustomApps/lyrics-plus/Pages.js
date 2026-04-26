@@ -947,7 +947,7 @@ const wordModeHashCode = (str) => {
 	return Math.abs(hash);
 };
 
-const WORD_MODE_SIZES = [32, 40, 48, 56, 64, 72, 80];
+const WORD_MODE_SIZES = [28, 34, 40, 46, 52, 58, 64];
 
 const wordModeGetRowConfig = (rowIndex, userFontSize) => {
 	const hash = wordModeHashCode("row:" + rowIndex);
@@ -1057,43 +1057,43 @@ const WordModePage = react.memo(({ lyrics, provider, copyright, fontSize = 32 })
 			if (!line || !Array.isArray(line.text)) continue;
 
 			const words = buildWords(line.text, line.startTime);
-			if (words.length === 0) continue;
+			if (words.length > 0) {
+				const rows = [];
+				let i = 0;
+				while (i < words.length) {
+					const rowIdx = lines.reduce((sum, l) => sum + l.rows.length, 0) + rows.length;
+					const { basePx, baseCqw, maxWords } = wordModeGetRowConfig(rowIdx, fontSize);
+					const rowWords = words.slice(i, i + maxWords);
 
-			const rows = [];
-			let i = 0;
-			while (i < words.length) {
-				const rowIdx = lines.reduce((sum, l) => sum + l.rows.length, 0) + rows.length;
-				const { basePx, baseCqw, maxWords } = wordModeGetRowConfig(rowIdx, fontSize);
-				const rowWords = words.slice(i, i + maxWords);
+					// Calculate total characters in this row (including spaces between words)
+					const charCount = rowWords.reduce((sum, w) => sum + w.text.length, 0) + Math.max(0, rowWords.length - 1);
 
-				// Calculate total characters in this row (including spaces between words)
-				const charCount = rowWords.reduce((sum, w) => sum + w.text.length, 0) + Math.max(0, rowWords.length - 1);
+					// A bold uppercase character is typically ~0.65em wide.
+					// We want the total width (charCount * 0.65 * fontSizeCqw) to be <= 90cqw (leaving 10cqw for padding).
+					// So: fontSizeCqw <= 90 / (charCount * 0.65) = 138 / charCount
+					const safeCqw = (138 / Math.max(1, charCount)).toFixed(2);
 
-				// A bold uppercase character is typically ~0.65em wide.
-				// We want the total width (charCount * 0.65 * fontSizeCqw) to be <= 90cqw (leaving 10cqw for padding).
-				// So: fontSizeCqw <= 90 / (charCount * 0.65) = 138 / charCount
-				const safeCqw = (138 / Math.max(1, charCount)).toFixed(2);
+					// Take the minimum of the basePx, baseCqw, and the safeCqw to guarantee it fits
+					const rowFontSizeStr = `min(${basePx}px, ${baseCqw}cqw, ${safeCqw}cqw)`;
 
-				// Take the minimum of the basePx, baseCqw, and the safeCqw to guarantee it fits
-				const rowFontSizeStr = `min(${basePx}px, ${baseCqw}cqw, ${safeCqw}cqw)`;
+					rows.push({
+						words: rowWords,
+						start: rowWords[0].start,
+						fontSize: rowFontSizeStr,
+						rowIndex: rowIdx,
+					});
+					i += maxWords;
+				}
 
-				rows.push({
-					words: rowWords,
-					start: rowWords[0].start,
-					fontSize: rowFontSizeStr,
-					rowIndex: rowIdx,
+				lines.push({
+					lineIdx,
+					startTime: line.startTime || 0,
+					endTime: line.endTime || words[words.length - 1].end,
+					rows,
 				});
-				i += maxWords;
 			}
 
-			lines.push({
-				lineIdx,
-				startTime: line.startTime || 0,
-				endTime: line.endTime || words[words.length - 1].end,
-				rows,
-			});
-
-			// Process background vocals independently
+			// Process background vocals independently (even if main text is empty)
 			if (line.background && Array.isArray(line.background)) {
 				// The syllables in line.background include a gap from line.startTime!
 				// So we must accumulate from line.startTime to avoid double-adding the gap.
@@ -1126,9 +1126,15 @@ const WordModePage = react.memo(({ lyrics, provider, copyright, fontSize = 32 })
 
 		let currentLineIdx = -1;
 		for (let i = lines.length - 1; i >= 0; i--) {
-			if (position >= lines[i].startTime) {
-				currentLineIdx = i;
-				break;
+			const line = lines[i];
+			if (position >= line.startTime) {
+				// Only switch to the next line if its first word has actually started.
+				// Otherwise, stay on the previous line to avoid "blank screen" gaps.
+				const firstWordStart = line.rows[0]?.words[0]?.start;
+				if (firstWordStart === undefined || position >= firstWordStart - 200) {
+					currentLineIdx = i;
+					break;
+				}
 			}
 		}
 
@@ -1151,7 +1157,7 @@ const WordModePage = react.memo(({ lyrics, provider, copyright, fontSize = 32 })
 
 	const { currentLineIdx, visibleRows, activeBackgrounds } = visibleState;
 
-	const bgFontSizePx = Math.round(32 * (fontSize / 32));
+	const bgFontSizePx = Math.round(28 * (fontSize / 32));
 	const bgFontSize = `min(${bgFontSizePx}px, ${(bgFontSizePx / 6).toFixed(2)}cqw)`;
 
 	return react.createElement(

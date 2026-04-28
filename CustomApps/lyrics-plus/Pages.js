@@ -983,6 +983,18 @@ const WordModePage = react.memo(({ lyrics, provider, copyright, fontSize = 32 })
 	// Build: lines -> rows (max 3 words) -> words (with syllables inside)
 	const parsedData = useMemo(() => {
 		if (!lyrics || !lyrics.length) return { lines: [], backgrounds: [] };
+
+		const processedLyrics = processPauseLines(lyrics, true);
+
+		// Pre-calculate nextStartTime for progress indicators
+		let nextNonPauseStart = null;
+		for (let i = processedLyrics.length - 1; i >= 0; i--) {
+			processedLyrics[i].nextStartTime = nextNonPauseStart;
+			if (!isPauseLine(processedLyrics[i]) && processedLyrics[i].startTime != null) {
+				nextNonPauseStart = processedLyrics[i].startTime;
+			}
+		}
+
 		const lines = [];
 		const backgrounds = [];
 		let runningRowCount = 0;
@@ -1045,8 +1057,31 @@ const WordModePage = react.memo(({ lyrics, provider, copyright, fontSize = 32 })
 			return words;
 		};
 
-		for (let lineIdx = 0; lineIdx < lyrics.length; lineIdx++) {
-			const line = lyrics[lineIdx];
+		for (let lineIdx = 0; lineIdx < processedLyrics.length; lineIdx++) {
+			const line = processedLyrics[lineIdx];
+			const isPause = isPauseLine(line);
+
+			if (isPause) {
+				const rowIdx = runningRowCount;
+				lines.push({
+					lineIdx,
+					startTime: line.startTime || 0,
+					endTime: line.nextStartTime || (line.startTime || 0) + 5000,
+					isPause: true,
+					nextStartTime: line.nextStartTime,
+					rows: [
+						{
+							isPause: true,
+							startTime: line.startTime || 0,
+							nextStartTime: line.nextStartTime,
+							rowIndex: rowIdx,
+						},
+					],
+				});
+				runningRowCount++;
+				continue;
+			}
+
 			if (!line || !Array.isArray(line.text)) continue;
 
 			const words = buildWords(line.text, line.startTime);
@@ -1071,7 +1106,7 @@ const WordModePage = react.memo(({ lyrics, provider, copyright, fontSize = 32 })
 
 					rows.push({
 						words: rowWords,
-						start: rowWords[0].start,
+						start: rowWords[0]?.start,
 						fontSize: rowFontSizeStr,
 						rowIndex: rowIdx,
 					});
@@ -1083,7 +1118,7 @@ const WordModePage = react.memo(({ lyrics, provider, copyright, fontSize = 32 })
 				lines.push({
 					lineIdx,
 					startTime: line.startTime || 0,
-					endTime: line.endTime || words[words.length - 1].end,
+					endTime: line.endTime || words[words.length - 1]?.end,
 					rows,
 				});
 			}
@@ -1098,8 +1133,8 @@ const WordModePage = react.memo(({ lyrics, provider, copyright, fontSize = 32 })
 					const bgCharCount = bgWords.reduce((sum, w) => sum + w.text.length, 0) + Math.max(0, bgWords.length - 1);
 
 					// Use specific end time or default to the end of the last parsed background word + a tiny padding
-					const bgEndTime = line.backgroundEndTime || bgWords[bgWords.length - 1].end;
-					const bgStartTime = line.backgroundStartTime || bgWords[0].start;
+					const bgEndTime = line.backgroundEndTime || bgWords[bgWords.length - 1]?.end;
+					const bgStartTime = line.backgroundStartTime || bgWords[0]?.start;
 					backgrounds.push({
 						startTime: bgStartTime,
 						endTime: bgEndTime,
@@ -1125,7 +1160,7 @@ const WordModePage = react.memo(({ lyrics, provider, copyright, fontSize = 32 })
 			if (position >= line.startTime) {
 				// Only switch to the next line if its first word has actually started.
 				// Otherwise, stay on the previous line to avoid "blank screen" gaps.
-				const firstWordStart = line.rows[0]?.words[0]?.start;
+				const firstWordStart = line.isPause ? line.startTime : line.rows[0]?.words?.[0]?.start;
 				if (firstWordStart === undefined || position >= firstWordStart - 200) {
 					currentLineIdx = i;
 					break;
@@ -1137,11 +1172,23 @@ const WordModePage = react.memo(({ lyrics, provider, copyright, fontSize = 32 })
 		if (currentLineIdx !== -1) {
 			const currentLine = lines[currentLineIdx];
 			for (const row of currentLine.rows) {
+				if (row.isPause) {
+					visibleRows.push(row);
+					continue;
+				}
 				const visibleWords = row.words.filter((w) => position >= w.start);
 				if (visibleWords.length > 0) {
 					visibleRows.push({ ...row, visibleWords });
 				}
 			}
+		} else if (lines.length > 0 && position < lines[0].startTime) {
+			// Show idling for the intro
+			visibleRows.push({
+				isPause: true,
+				startTime: 0,
+				nextStartTime: lines[0].startTime,
+				rowIndex: -1,
+			});
 		}
 
 		// Background vocals show independently based on their exact absolute timing
@@ -1160,10 +1207,21 @@ const WordModePage = react.memo(({ lyrics, provider, copyright, fontSize = 32 })
 			"div",
 			{
 				className: "lyrics-wordMode-wordsStack",
-				key: `line-${currentLineIdx}`,
 			},
-			visibleRows.map((row) =>
-				react.createElement(
+			visibleRows.map((row) => {
+				if (row.isPause) {
+					const pauseStart = row.startTime || 0;
+					const pauseDuration = row.nextStartTime ? row.nextStartTime - pauseStart : 0;
+					const progress = pauseDuration > 0 ? (position - pauseStart) / pauseDuration : 0;
+					return react.createElement(IdlingIndicator, {
+						key: `row-${row.rowIndex}`,
+						isActive: true,
+						progress,
+						delay: pauseDuration > 0 ? pauseDuration / 3 : 0,
+						className: "lyrics-wordMode-idling",
+					});
+				}
+				return react.createElement(
 					"div",
 					{
 						key: `row-${row.rowIndex}`,
@@ -1195,8 +1253,8 @@ const WordModePage = react.memo(({ lyrics, provider, copyright, fontSize = 32 })
 							})
 						)
 					)
-				)
-			),
+				);
+			}),
 			activeBackgrounds.length > 0 &&
 				react.createElement(
 					"div",

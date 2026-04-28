@@ -931,3 +931,22 @@ div.lyrics-tabBar-headerItemLink {
 		padding: 8vh 40px 20px;
 	}
 }
+
+.lyrics-wordMode-wordsStack .lyrics-idling-indicator {
+	margin: 20px 0;
+}
+
+.lyrics-wordMode-idling {
+	animation: wordModeIdlingIn 0.5s ease-out both;
+}
+
+@keyframes wordModeIdlingIn {
+	0% {
+		opacity: 0;
+		transform: scale(0.8);
+	}
+	100% {
+		opacity: 1;
+		transform: scale(1);
+	}
+}

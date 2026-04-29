@@ -1217,7 +1217,7 @@ class LyricsContainer extends react.Component {
 							if (matched._diff == null || matched._diff > 2000) matched = null;
 						}
 						if (matched && matched.originalText && matched.text !== matched.originalText) {
-							return { ...line, originalText: line.text, text: matched.text };
+							return { ...line, syllables: line.text, originalText: line.text, text: matched.text };
 						}
 						return line;
 					});

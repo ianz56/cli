@@ -957,10 +957,10 @@ const wordModeGetRowConfig = (rowIndex, userFontSize) => {
 	const scale = userFontSize / 32;
 	const fontSizePx = Math.round(baseSize * scale);
 
-	// Big font = fewer words per row. We scale the thresholds as well so layout ratio is maintained.
+	// Big font = fewer words per row. Use the scaled fontSizePx directly so maxWords depends on user preference.
 	let maxWords;
-	if (fontSizePx >= 80 * scale) maxWords = 1;
-	else if (fontSizePx >= 56 * scale) maxWords = 2;
+	if (fontSizePx >= 80) maxWords = 1;
+	else if (fontSizePx >= 56) maxWords = 2;
 	else maxWords = 3;
 
 	// Return the base sizes. The loop will compute safe limits based on actual word length.
@@ -1082,9 +1082,11 @@ const WordModePage = react.memo(({ lyrics, provider, copyright, fontSize = 32 })
 				continue;
 			}
 
-			if (!line || !Array.isArray(line.text)) continue;
+			// Use syllables field if available (preserved from translation), otherwise fall back to text
+			const syllableData = line.syllables || line.text;
+			if (!line || !Array.isArray(syllableData)) continue;
 
-			const words = buildWords(line.text, line.startTime);
+			const words = buildWords(syllableData, line.startTime);
 			if (words.length > 0) {
 				const rows = [];
 				let i = 0;
@@ -1235,7 +1237,7 @@ const WordModePage = react.memo(({ lyrics, provider, copyright, fontSize = 32 })
 								key: `w-${row.rowIndex}-${wIdx}`,
 								className: "lyrics-wordMode-word",
 								onClick: () => {
-									if (w.start) Spicetify.Player.seek(w.start);
+									if (w.start != null) Spicetify.Player.seek(w.start);
 								},
 							},
 							wIdx > 0 ? " " : null,
@@ -1277,7 +1279,7 @@ const WordModePage = react.memo(({ lyrics, provider, copyright, fontSize = 32 })
 										key: `bg-${wIdx}`,
 										className: "lyrics-wordMode-word",
 										onClick: () => {
-											if (w.start) Spicetify.Player.seek(w.start);
+											if (w.start != null) Spicetify.Player.seek(w.start);
 										},
 									},
 									wIdx > 0 ? " " : null,

@@ -335,7 +335,7 @@ const ProviderIanz56 = (() => {
 				}
 			}
 
-			const isInline = (typeof CONFIG !== "undefined" && CONFIG?.visual?.["synced-background-inline"]) ?? false;
+			const isInline = CONFIG?.visual?.["synced-background-inline"] ?? true;
 
 			synced.push({
 				startTime: Math.round(lineStartTime * 1000),

@@ -400,6 +400,17 @@ const ServiceOption = ({ item, onToggle, onSwap, isFirst = false, isLast = false
 		[item.token]
 	);
 
+	const toggleMode = useCallback(
+		(mode) => {
+			setModesOn((prev) => {
+				const newState = !prev[mode];
+				if (onModeToggle) onModeToggle(item.name, mode, newState);
+				return { ...prev, [mode]: newState };
+			});
+		},
+		[item.name, onModeToggle]
+	);
+
 	const toggleActive = useCallback(() => {
 		if (item.name === "genius" && spotifyVersion >= "1.2.31") return;
 		const state = !active;
@@ -477,22 +488,14 @@ const ServiceOption = ({ item, onToggle, onSwap, isFirst = false, isLast = false
 							"label",
 							{
 								style: { fontSize: "13px", opacity: 0.8, cursor: "pointer", userSelect: "none" },
-								onClick: () => {
-									const newState = !modesOn[mode];
-									setModesOn({ ...modesOn, [mode]: newState });
-									if (onModeToggle) onModeToggle(item.name, mode, newState);
-								},
+								onClick: () => toggleMode(mode),
 							},
 							label
 						),
 						react.createElement(ButtonSVG, {
 							icon: Spicetify.SVGIcons.check,
 							active: modesOn[mode],
-							onClick: () => {
-								const newState = !modesOn[mode];
-								setModesOn({ ...modesOn, [mode]: newState });
-								if (onModeToggle) onModeToggle(item.name, mode, newState);
-							},
+							onClick: () => toggleMode(mode),
 						})
 					);
 				})
@@ -597,10 +600,15 @@ function openConfigOverlay(configContainer) {
 	if (existingOverlay) {
 		// Properly cleanup existing overlay
 		const existingContentHost = existingOverlay.querySelector("div[style*='overflow: auto']");
-		const existingKeydownHandlers = existingOverlay._keydownHandler;
 
-		if (existingKeydownHandlers) {
-			document.removeEventListener("keydown", existingKeydownHandlers);
+		if (existingOverlay._keydownHandler) {
+			document.removeEventListener("keydown", existingOverlay._keydownHandler);
+		}
+		if (existingOverlay._focusTrapHandler) {
+			document.removeEventListener("keydown", existingOverlay._focusTrapHandler);
+		}
+		if (existingOverlay._focusInHandler) {
+			document.removeEventListener("focusin", existingOverlay._focusInHandler);
 		}
 
 		try {
@@ -790,7 +798,10 @@ function openConfigOverlay(configContainer) {
 	document.addEventListener("keydown", handleEscape);
 	document.addEventListener("keydown", handleFocusTrap);
 	document.addEventListener("focusin", handleFocusIn);
+
 	overlay._keydownHandler = handleEscape;
+	overlay._focusTrapHandler = handleFocusTrap;
+	overlay._focusInHandler = handleFocusIn;
 
 	header.append(title, closeButton);
 	panel.append(header, contentHost);
@@ -803,10 +814,14 @@ function openConfigOverlay(configContainer) {
 		reactRoot.render(configContainer);
 	} else if (typeof Spicetify?.ReactDOM?.render === "function") {
 		Spicetify.ReactDOM.render(configContainer, contentHost);
+	} else {
+		console.warn("Lyrics Plus: Spicetify.ReactDOM provides neither createRoot nor render. configContainer was not rendered into contentHost.");
+		if (Spicetify.showNotification) Spicetify.showNotification("Failed to render settings", true);
 	}
 
 	// Set initial focus
 	setTimeout(() => {
+		if (isClosing || !panel.isConnected) return;
 		const focusableElements = getFocusableElements();
 		if (focusableElements.length > 0) {
 			focusableElements[0].focus();

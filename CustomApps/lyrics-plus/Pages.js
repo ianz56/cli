@@ -271,7 +271,7 @@ const SyncedLyricsPage = react.memo(({ lyrics = [], provider, copyright, isKara 
 		return line.startTime != null && line.endTime != null && position >= line.startTime && position <= line.endTime;
 	});
 
-	const { activeLines, startLineIndex, activeElementIndex } = useMemo(() => {
+	const { activeLines, startLineIndex, activeElementIndex, nonPausePrefixCounts } = useMemo(() => {
 		// Keep a bounded window of lines around the active line.
 		// A spacer element at the top of the list compensates for the height of
 		// lines removed from the front, keeping the active line's offsetTop stable
@@ -289,10 +289,16 @@ const SyncedLyricsPage = react.memo(({ lyrics = [], provider, copyright, isKara 
 			}
 		}
 
+		const prefixCounts = new Array(lyricWithEmptyLines.length + 1).fill(0);
+		for (let i = 0; i < lyricWithEmptyLines.length; i++) {
+			prefixCounts[i + 1] = prefixCounts[i] + (lyricWithEmptyLines[i].isPause ? 0 : 1);
+		}
+
 		return {
 			activeLines: lyricWithEmptyLines.slice(startIndex, endIndex + 1),
 			startLineIndex: startIndex,
 			activeElementIndex: activeLineIndex - startIndex,
+			nonPausePrefixCounts: prefixCounts,
 		};
 	}, [activeLineIndex, lyricWithEmptyLines, CONFIG.visual["lines-after"], CONFIG.visual["lines-before"]]);
 
@@ -318,12 +324,7 @@ const SyncedLyricsPage = react.memo(({ lyrics = [], provider, copyright, isKara 
 		const fontSize = Number(CONFIG.visual["font-size"]) || 32;
 		const lyricsLineHeight = fontSize + 4;
 
-		let nonPauseCount = 0;
-		for (let k = 0; k < startLineIndex; k++) {
-			if (!lyricWithEmptyLines[k].isPause) {
-				nonPauseCount++;
-			}
-		}
+		const nonPauseCount = nonPausePrefixCounts[startLineIndex];
 
 		spacerRef.current.style.height = nonPauseCount > 0 && lyricsLineHeight > 0 ? `${nonPauseCount * lyricsLineHeight}px` : "0px";
 	};

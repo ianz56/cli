@@ -512,6 +512,12 @@ class LyricsContainer extends react.Component {
 				if (!service.modesOn.unsynced) data.unsynced = null;
 			}
 
+			if (!(data.karaoke || data.synced || data.unsynced)) {
+				data.ianz56Translation = null;
+				data.neteaseTranslation = null;
+				data.musixmatchTranslation = null;
+			}
+
 			if (data.error || (!data.karaoke && !data.synced && !data.unsynced && !data.genius)) continue;
 
 			if (mode === -1) {
@@ -1454,6 +1460,7 @@ class LyricsContainer extends react.Component {
 							{
 								className: "lyrics-config-button",
 								onClick: triggerOpenLyricsPlusSettings,
+								"aria-label": "Open Lyrics Plus settings",
 							},
 							react.createElement(
 								"svg",

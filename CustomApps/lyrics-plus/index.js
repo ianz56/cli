@@ -67,6 +67,7 @@ const CONFIG = {
 		"synced-compact": getConfig("lyrics-plus:visual:synced-compact"),
 		"synced-background-inline": getConfig("lyrics-plus:visual:synced-background-inline", true),
 		"dual-genius": getConfig("lyrics-plus:visual:dual-genius"),
+		"word-mode": getConfig("lyrics-plus:visual:word-mode", false),
 		"global-delay": Number(localStorage.getItem("lyrics-plus:visual:global-delay")) || 0,
 		delay: 0,
 	},
@@ -79,7 +80,7 @@ const CONFIG = {
 				karaoke: getConfig("lyrics-plus:provider:ianz56:on:karaoke", true),
 				synced: getConfig("lyrics-plus:provider:ianz56:on:synced", true),
 				unsynced: getConfig("lyrics-plus:provider:ianz56:on:unsynced", true),
-			}
+			},
 		},
 		lrclib: {
 			on: getConfig("lyrics-plus:provider:lrclib:on"),
@@ -88,7 +89,7 @@ const CONFIG = {
 			modesOn: {
 				synced: getConfig("lyrics-plus:provider:lrclib:on:synced", true),
 				unsynced: getConfig("lyrics-plus:provider:lrclib:on:unsynced", true),
-			}
+			},
 		},
 		musixmatch: {
 			on: getConfig("lyrics-plus:provider:musixmatch:on"),
@@ -99,7 +100,7 @@ const CONFIG = {
 				karaoke: getConfig("lyrics-plus:provider:musixmatch:on:karaoke", true),
 				synced: getConfig("lyrics-plus:provider:musixmatch:on:synced", true),
 				unsynced: getConfig("lyrics-plus:provider:musixmatch:on:unsynced", true),
-			}
+			},
 		},
 		apple: {
 			on: getConfig("lyrics-plus:provider:apple:on"),
@@ -110,7 +111,7 @@ const CONFIG = {
 				karaoke: getConfig("lyrics-plus:provider:apple:on:karaoke", true),
 				synced: getConfig("lyrics-plus:provider:apple:on:synced", true),
 				unsynced: getConfig("lyrics-plus:provider:apple:on:unsynced", true),
-			}
+			},
 		},
 		spotify: {
 			on: getConfig("lyrics-plus:provider:spotify:on"),
@@ -119,7 +120,7 @@ const CONFIG = {
 			modesOn: {
 				synced: getConfig("lyrics-plus:provider:spotify:on:synced", true),
 				unsynced: getConfig("lyrics-plus:provider:spotify:on:unsynced", true),
-			}
+			},
 		},
 		netease: {
 			on: getConfig("lyrics-plus:provider:netease:on", false),
@@ -129,7 +130,7 @@ const CONFIG = {
 				karaoke: getConfig("lyrics-plus:provider:netease:on:karaoke", true),
 				synced: getConfig("lyrics-plus:provider:netease:on:synced", true),
 				unsynced: getConfig("lyrics-plus:provider:netease:on:unsynced", true),
-			}
+			},
 		},
 		genius: {
 			on: spotifyVersion >= "1.2.31" ? false : getConfig("lyrics-plus:provider:genius:on"),
@@ -144,7 +145,7 @@ const CONFIG = {
 				karaoke: getConfig("lyrics-plus:provider:local:on:karaoke", true),
 				synced: getConfig("lyrics-plus:provider:local:on:synced", true),
 				unsynced: getConfig("lyrics-plus:provider:local:on:unsynced", true),
-			}
+			},
 		},
 	},
 	providersOrder: localStorage.getItem("lyrics-plus:services-order"),
@@ -512,21 +513,39 @@ class LyricsContainer extends react.Component {
 			}
 
 			if (data.error || (!data.karaoke && !data.synced && !data.unsynced && !data.genius)) continue;
-			
+
 			if (mode === -1) {
 				// In auto mode, if we found karaoke or synced, we can just return immediately
 				if (data.karaoke || data.synced) {
-					if (data.karaoke) { data.providerKaraoke = data.provider; data.copyrightKaraoke = data.copyright; }
-					if (data.synced) { data.providerSynced = data.provider; data.copyrightSynced = data.copyright; }
-					if (data.unsynced) { data.providerUnsynced = data.provider; data.copyrightUnsynced = data.copyright; }
-					if (data.genius) { data.providerGenius = data.provider; data.copyrightGenius = data.copyright; }
+					if (data.karaoke) {
+						data.providerKaraoke = data.provider;
+						data.copyrightKaraoke = data.copyright;
+					}
+					if (data.synced) {
+						data.providerSynced = data.provider;
+						data.copyrightSynced = data.copyright;
+					}
+					if (data.unsynced) {
+						data.providerUnsynced = data.provider;
+						data.copyrightUnsynced = data.copyright;
+					}
+					if (data.genius) {
+						data.providerGenius = data.provider;
+						data.copyrightGenius = data.copyright;
+					}
 					finalData = data;
 					return finalData;
 				}
 				// Otherwise (only unsynced/genius), we save it but keep looking for a better mode
 				if (!finalData.provider) {
-					if (data.unsynced) { data.providerUnsynced = data.provider; data.copyrightUnsynced = data.copyright; }
-					if (data.genius) { data.providerGenius = data.provider; data.copyrightGenius = data.copyright; }
+					if (data.unsynced) {
+						data.providerUnsynced = data.provider;
+						data.copyrightUnsynced = data.copyright;
+					}
+					if (data.genius) {
+						data.providerGenius = data.provider;
+						data.copyrightGenius = data.copyright;
+					}
 					finalData = data;
 				}
 				continue;
@@ -548,7 +567,10 @@ class LyricsContainer extends react.Component {
 			for (const key in data) {
 				if (!finalData[key] || key === currentMode || key === "provider" || key === "copyright" || key === "uri" || key === "error") {
 					finalData[key] = data[key];
-					if (["karaoke", "synced", "unsynced", "genius"].includes(key) && (key === currentMode || !finalData[`provider${key.charAt(0).toUpperCase() + key.slice(1)}`])) {
+					if (
+						["karaoke", "synced", "unsynced", "genius"].includes(key) &&
+						(key === currentMode || !finalData[`provider${key.charAt(0).toUpperCase() + key.slice(1)}`])
+					) {
 						finalData[`provider${key.charAt(0).toUpperCase() + key.slice(1)}`] = data.provider;
 						finalData[`copyright${key.charAt(0).toUpperCase() + key.slice(1)}`] = data.copyright;
 					}
@@ -1216,19 +1238,28 @@ class LyricsContainer extends react.Component {
 							if (matched._diff == null || matched._diff > 2000) matched = null;
 						}
 						if (matched && matched.originalText && matched.text !== matched.originalText) {
-							return { ...line, originalText: line.text, text: matched.text };
+							return { ...line, syllables: line.text, originalText: line.text, text: matched.text };
 						}
 						return line;
 					});
 				}
-				activeItem = react.createElement(CONFIG.visual["synced-compact"] ? SyncedLyricsPage : SyncedExpandedLyricsPage, {
-					isKara: true,
-					trackUri: this.state.uri,
-					lyrics: karaLyrics,
-					provider: this.state.providerKaraoke || this.state.provider,
-					copyright: this.state.copyrightKaraoke || this.state.copyright,
-					reRenderLyricsPage: this.reRenderLyricsPage,
-				});
+				if (CONFIG.visual["word-mode"]) {
+					activeItem = react.createElement(WordModePage, {
+						lyrics: karaLyrics,
+						provider: this.state.providerKaraoke || this.state.provider,
+						copyright: this.state.copyrightKaraoke || this.state.copyright,
+						fontSize: CONFIG.visual["font-size"] || 32,
+					});
+				} else {
+					activeItem = react.createElement(CONFIG.visual["synced-compact"] ? SyncedLyricsPage : SyncedExpandedLyricsPage, {
+						isKara: true,
+						trackUri: this.state.uri,
+						lyrics: karaLyrics,
+						provider: this.state.providerKaraoke || this.state.provider,
+						copyright: this.state.copyrightKaraoke || this.state.copyright,
+						reRenderLyricsPage: this.reRenderLyricsPage,
+					});
+				}
 			} else if (mode === SYNCED && this.state.synced) {
 				activeItem = react.createElement(CONFIG.visual["synced-compact"] ? SyncedLyricsPage : SyncedExpandedLyricsPage, {
 					trackUri: this.state.uri,

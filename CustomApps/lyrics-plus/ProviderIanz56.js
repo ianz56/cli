@@ -97,8 +97,7 @@ const ProviderIanz56 = (() => {
 			const entryTitle = normalize(entry.title);
 
 			const entryParts = getArtistParts(entry.artist);
-			const artistOverlap =
-				artistParts.some((p) => entryParts.includes(p)) || entryParts.some((p) => artistParts.includes(p));
+			const artistOverlap = artistParts.some((p) => entryParts.includes(p)) || entryParts.some((p) => artistParts.includes(p));
 
 			return (
 				(artistOverlap || entryArtist.includes(normalizedArtist) || normalizedArtist.includes(entryArtist)) &&
@@ -151,21 +150,13 @@ const ProviderIanz56 = (() => {
 
 			// If artist is empty, allow partial title match (legacy behavior)
 			if (!entryArtist) {
-				return (
-					entryTitle === normalizedTitle ||
-					entryTitle.includes(normalizedTitle) ||
-					normalizedTitle.includes(entryTitle)
-				);
+				return entryTitle === normalizedTitle || entryTitle.includes(normalizedTitle) || normalizedTitle.includes(entryTitle);
 			}
 
 			// Require exact title match AND some artist overlap
 			const entryParts = getArtistParts(entry.artist);
-			const artistOverlap =
-				artistParts.some((p) => entryParts.includes(p)) || entryParts.some((p) => artistParts.includes(p));
-			return (
-				entryTitle === normalizedTitle &&
-				(artistOverlap || entryArtist.includes(normalizedArtist) || normalizedArtist.includes(entryArtist))
-			);
+			const artistOverlap = artistParts.some((p) => entryParts.includes(p)) || entryParts.some((p) => artistParts.includes(p));
+			return entryTitle === normalizedTitle && (artistOverlap || entryArtist.includes(normalizedArtist) || normalizedArtist.includes(entryArtist));
 		});
 
 		if (titleOnlyMatches.length > 0) {

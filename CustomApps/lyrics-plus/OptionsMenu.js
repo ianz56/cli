@@ -430,6 +430,12 @@ const AdjustmentsMenu = react.memo(({ mode, hasPerformer }) => {
 									when: () => mode === SYNCED || mode === KARAOKE,
 								},
 								{
+									desc: "Word Mode",
+									key: "word-mode",
+									type: ConfigSlider,
+									when: () => mode === KARAOKE,
+								},
+								{
 									desc: "Show performers",
 									key: "show-performers",
 									type: ConfigSlider,

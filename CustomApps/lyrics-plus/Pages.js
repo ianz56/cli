@@ -317,14 +317,14 @@ const SyncedLyricsPage = react.memo(({ lyrics = [], provider, copyright, isKara 
 		if (!spacerRef.current || !lyricContainerEle.current) return;
 		const fontSize = Number(CONFIG.visual["font-size"]) || 32;
 		const lyricsLineHeight = fontSize + 4;
-		
+
 		let nonPauseCount = 0;
 		for (let k = 0; k < startLineIndex; k++) {
 			if (!lyricWithEmptyLines[k].isPause) {
 				nonPauseCount++;
 			}
 		}
-		
+
 		spacerRef.current.style.height = nonPauseCount > 0 && lyricsLineHeight > 0 ? `${nonPauseCount * lyricsLineHeight}px` : "0px";
 	};
 
@@ -934,6 +934,374 @@ const SyncedExpandedLyricsPage = react.memo(({ lyrics, provider, copyright, isKa
 			copyright,
 		}),
 		react.createElement(SearchBar, null)
+	);
+});
+
+// ===== Word Mode (Instagram-style per-word lyrics) =====
+
+const wordModeHashCode = (str) => {
+	let hash = 5381;
+	for (let i = 0; i < str.length; i++) {
+		hash = ((hash << 5) + hash + str.charCodeAt(i)) | 0;
+	}
+	return Math.abs(hash);
+};
+
+const WORD_MODE_SIZES = [28, 34, 40, 46, 52, 58, 64];
+
+const wordModeGetRowConfig = (rowIndex, userFontSize) => {
+	const hash = wordModeHashCode("row:" + rowIndex);
+	const baseSize = WORD_MODE_SIZES[hash % WORD_MODE_SIZES.length];
+
+	// Scale size based on user font size preference (default ~32 in normal karaoke)
+	const scale = userFontSize / 32;
+	const fontSizePx = Math.round(baseSize * scale);
+
+	// Big font = fewer words per row. Use the scaled fontSizePx directly so maxWords depends on user preference.
+	let maxWords;
+	if (fontSizePx >= 80) maxWords = 1;
+	else if (fontSizePx >= 56) maxWords = 2;
+	else maxWords = 3;
+
+	// Return the base sizes. The loop will compute safe limits based on actual word length.
+	const cqw = (fontSizePx / 6).toFixed(2);
+
+	return { basePx: fontSizePx, baseCqw: cqw, maxWords };
+};
+
+const WordModePage = react.memo(({ lyrics, provider, copyright, fontSize = 32 }) => {
+	const [position, setPosition] = useState(() => Spicetify.Player.getProgress() + CONFIG.visual["global-delay"] + CONFIG.visual.delay);
+
+	useTrackPosition(() => {
+		const newPos = Spicetify.Player.getProgress();
+		const delay = CONFIG.visual["global-delay"] + CONFIG.visual.delay;
+		if (Math.abs(newPos + delay - position) > 20) {
+			setPosition(newPos + delay);
+		}
+	});
+
+	// Build: lines -> rows (max 3 words) -> words (with syllables inside)
+	const parsedData = useMemo(() => {
+		if (!lyrics || !lyrics.length) return { lines: [], backgrounds: [] };
+
+		const processedLyrics = processPauseLines(lyrics, true);
+
+		// Pre-calculate nextStartTime for progress indicators
+		let nextNonPauseStart = null;
+		for (let i = processedLyrics.length - 1; i >= 0; i--) {
+			processedLyrics[i].nextStartTime = nextNonPauseStart;
+			if (!isPauseLine(processedLyrics[i]) && processedLyrics[i].startTime != null) {
+				nextNonPauseStart = processedLyrics[i].startTime;
+			}
+		}
+
+		const lines = [];
+		const backgrounds = [];
+		let runningRowCount = 0;
+
+		const buildWords = (syllablesArray, startTime) => {
+			const words = [];
+			let accTime = startTime || 0;
+			let currentWord = null;
+
+			for (let sIdx = 0; sIdx < syllablesArray.length; sIdx++) {
+				const syllable = syllablesArray[sIdx];
+				const rawStr = typeof syllable === "object" ? syllable.word : syllable;
+				const duration = typeof syllable === "object" ? syllable.time || 0 : 0;
+
+				if (!rawStr || rawStr.length === 0) {
+					accTime += duration;
+					continue;
+				}
+
+				const hasLeadingSpace = /^\s/.test(rawStr);
+				const hasTrailingSpace = /\s$/.test(rawStr);
+				const trimmed = rawStr.trim();
+
+				if (hasLeadingSpace && currentWord && currentWord.syllables.length) {
+					words.push(currentWord);
+					currentWord = null;
+				}
+
+				if (trimmed.length > 0) {
+					if (!currentWord) {
+						currentWord = {
+							text: trimmed,
+							start: accTime,
+							syllables: [],
+						};
+					} else {
+						currentWord.text += trimmed;
+					}
+
+					const fadeDuration = duration > 0 ? duration : 300;
+					currentWord.syllables.push({
+						text: trimmed,
+						start: accTime,
+						end: accTime + duration,
+						fadeDuration,
+					});
+				}
+
+				accTime += duration;
+				if (currentWord) currentWord.end = accTime;
+
+				if (hasTrailingSpace && currentWord && currentWord.syllables.length) {
+					words.push(currentWord);
+					currentWord = null;
+				}
+			}
+			if (currentWord && currentWord.syllables.length) {
+				words.push(currentWord);
+			}
+			return words;
+		};
+
+		for (let lineIdx = 0; lineIdx < processedLyrics.length; lineIdx++) {
+			const line = processedLyrics[lineIdx];
+			const isPause = isPauseLine(line);
+
+			if (isPause) {
+				const rowIdx = runningRowCount;
+				lines.push({
+					lineIdx,
+					startTime: line.startTime || 0,
+					endTime: line.nextStartTime || (line.startTime || 0) + 5000,
+					isPause: true,
+					nextStartTime: line.nextStartTime,
+					rows: [
+						{
+							isPause: true,
+							startTime: line.startTime || 0,
+							nextStartTime: line.nextStartTime,
+							rowIndex: rowIdx,
+						},
+					],
+				});
+				runningRowCount++;
+				continue;
+			}
+
+			// Use syllables field if available (preserved from translation), otherwise fall back to text
+			const syllableData = line.syllables || line.text;
+			if (!line || !Array.isArray(syllableData)) continue;
+
+			const words = buildWords(syllableData, line.startTime);
+			if (words.length > 0) {
+				const rows = [];
+				let i = 0;
+				while (i < words.length) {
+					const rowIdx = runningRowCount + rows.length;
+					const { basePx, baseCqw, maxWords } = wordModeGetRowConfig(rowIdx, fontSize);
+					const rowWords = words.slice(i, i + maxWords);
+
+					// Calculate total characters in this row (including spaces between words)
+					const charCount = rowWords.reduce((sum, w) => sum + w.text.length, 0) + Math.max(0, rowWords.length - 1);
+
+					// A bold uppercase character is typically ~0.65em wide.
+					// We want the total width (charCount * 0.65 * fontSizeCqw) to be <= 90cqw (leaving 10cqw for padding).
+					// So: fontSizeCqw <= 90 / (charCount * 0.65) = 138 / charCount
+					const safeCqw = (138 / Math.max(1, charCount)).toFixed(2);
+
+					// Take the minimum of the basePx, baseCqw, and the safeCqw to guarantee it fits
+					const rowFontSizeStr = `min(${basePx}px, ${baseCqw}cqw, ${safeCqw}cqw)`;
+
+					rows.push({
+						words: rowWords,
+						start: rowWords[0]?.start,
+						fontSize: rowFontSizeStr,
+						rowIndex: rowIdx,
+					});
+					i += maxWords;
+				}
+
+				runningRowCount += rows.length;
+
+				lines.push({
+					lineIdx,
+					startTime: line.startTime || 0,
+					endTime: line.endTime || words[words.length - 1]?.end,
+					rows,
+				});
+			}
+
+			// Process background vocals independently (even if main text is empty)
+			if (line.background && Array.isArray(line.background)) {
+				// The syllables in line.background include a gap from line.startTime!
+				// So we must accumulate from line.startTime to avoid double-adding the gap.
+				const bgWords = buildWords(line.background, line.startTime || 0);
+				if (bgWords.length > 0) {
+					// Calculate total characters for background words
+					const bgCharCount = bgWords.reduce((sum, w) => sum + w.text.length, 0) + Math.max(0, bgWords.length - 1);
+
+					// Use specific end time or default to the end of the last parsed background word + a tiny padding
+					const bgEndTime = line.backgroundEndTime || bgWords[bgWords.length - 1]?.end;
+					const bgStartTime = line.backgroundStartTime || bgWords[0]?.start;
+					backgrounds.push({
+						startTime: bgStartTime,
+						endTime: bgEndTime,
+						words: bgWords,
+						charCount: bgCharCount,
+					});
+				}
+			}
+		}
+
+		return { lines, backgrounds };
+	}, [lyrics, fontSize]);
+
+	// Find current line and visible rows
+	const visibleState = useMemo(() => {
+		if (!parsedData.lines.length) return { currentLineIdx: -1, visibleRows: [], activeBackgrounds: [] };
+
+		const { lines, backgrounds } = parsedData;
+
+		let currentLineIdx = -1;
+		for (let i = lines.length - 1; i >= 0; i--) {
+			const line = lines[i];
+			if (position >= line.startTime) {
+				// Only switch to the next line if its first word has actually started.
+				// Otherwise, stay on the previous line to avoid "blank screen" gaps.
+				const firstWordStart = line.isPause ? line.startTime : line.rows[0]?.words?.[0]?.start;
+				if (firstWordStart === undefined || position >= firstWordStart - 200) {
+					currentLineIdx = i;
+					break;
+				}
+			}
+		}
+
+		const visibleRows = [];
+		if (currentLineIdx !== -1) {
+			const currentLine = lines[currentLineIdx];
+			for (const row of currentLine.rows) {
+				if (row.isPause) {
+					visibleRows.push(row);
+					continue;
+				}
+				const visibleWords = row.words.filter((w) => position >= w.start);
+				if (visibleWords.length > 0) {
+					visibleRows.push({ ...row, visibleWords });
+				}
+			}
+		} else if (lines.length > 0 && position < lines[0].startTime) {
+			// Show idling for the intro
+			visibleRows.push({
+				isPause: true,
+				startTime: 0,
+				nextStartTime: lines[0].startTime,
+				rowIndex: -1,
+			});
+		}
+
+		// Background vocals show independently based on their exact absolute timing
+		const activeBackgrounds = backgrounds.filter((bg) => position >= bg.startTime && position <= bg.endTime + 300);
+
+		return { currentLineIdx, visibleRows, activeBackgrounds };
+	}, [parsedData, position]);
+
+	const { currentLineIdx, visibleRows, activeBackgrounds } = visibleState;
+
+	const bgFontSizePx = Math.round(28 * (fontSize / 32));
+	return react.createElement(
+		"div",
+		{ className: "lyrics-wordMode-container" },
+		react.createElement(
+			"div",
+			{
+				className: "lyrics-wordMode-wordsStack",
+			},
+			visibleRows.map((row) => {
+				if (row.isPause) {
+					const pauseStart = row.startTime || 0;
+					const pauseDuration = row.nextStartTime ? row.nextStartTime - pauseStart : 0;
+					const progress = pauseDuration > 0 ? (position - pauseStart) / pauseDuration : 0;
+					return react.createElement(IdlingIndicator, {
+						key: `row-${row.rowIndex}`,
+						isActive: true,
+						progress,
+						delay: pauseDuration > 0 ? pauseDuration / 3 : 0,
+						className: "lyrics-wordMode-idling",
+					});
+				}
+				return react.createElement(
+					"div",
+					{
+						key: `row-${row.rowIndex}`,
+						className: "lyrics-wordMode-row",
+						style: { fontSize: row.fontSize },
+					},
+					row.visibleWords.map((w, wIdx) =>
+						react.createElement(
+							"span",
+							{
+								key: `w-${row.rowIndex}-${wIdx}`,
+								className: "lyrics-wordMode-word",
+								onClick: () => {
+									if (w.start != null) Spicetify.Player.seek(w.start);
+								},
+							},
+							wIdx > 0 ? " " : null,
+							w.syllables.map((syl, sIdx) => {
+								const isVisible = position >= syl.start;
+								return react.createElement(
+									"span",
+									{
+										key: sIdx,
+										className: isVisible ? "lyrics-wordMode-syl lyrics-wordMode-syl--active" : "lyrics-wordMode-syl",
+										style: isVisible ? { "--syl-fade-duration": `${syl.fadeDuration}ms` } : undefined,
+									},
+									syl.text
+								);
+							})
+						)
+					)
+				);
+			}),
+			activeBackgrounds.length > 0 &&
+				react.createElement(
+					"div",
+					{ className: "lyrics-wordMode-bgContainer" },
+					activeBackgrounds.map((bg, bgIdx) => {
+						// Background vocals should have a consistent size and just wrap if long
+						const bgFontSizeStr = `${bgFontSizePx}px`;
+
+						return react.createElement(
+							"div",
+							{
+								key: `bgGroup-${bgIdx}`,
+								className: "lyrics-wordMode-bgStack",
+								style: { fontSize: bgFontSizeStr },
+							},
+							bg.words.map((w, wIdx) =>
+								react.createElement(
+									"span",
+									{
+										key: `bg-${wIdx}`,
+										className: "lyrics-wordMode-word",
+										onClick: () => {
+											if (w.start != null) Spicetify.Player.seek(w.start);
+										},
+									},
+									wIdx > 0 ? " " : null,
+									w.syllables.map((syl, sIdx) => {
+										const isVisible = position >= syl.start;
+										return react.createElement(
+											"span",
+											{
+												key: sIdx,
+												className: isVisible ? "lyrics-wordMode-bg-syl lyrics-wordMode-bg-syl--active" : "lyrics-wordMode-bg-syl",
+												style: isVisible ? { "--syl-fade-duration": `${syl.fadeDuration}ms` } : undefined,
+											},
+											syl.text
+										);
+									})
+								)
+							)
+						);
+					})
+				)
+		),
+		react.createElement(CreditFooter, { provider, copyright })
 	);
 });
 

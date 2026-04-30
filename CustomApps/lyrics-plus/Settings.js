@@ -463,11 +463,11 @@ const ServiceOption = ({ item, onToggle, onSwap, isFirst = false, isLast = false
 			react.createElement(
 				"div",
 				{ style: { display: "flex", justifyContent: "flex-start", gap: "16px", marginTop: "12px", alignItems: "center" } },
-				Object.keys(modesOn).map(mode => {
+				Object.keys(modesOn).map((mode) => {
 					const labelMap = {
 						karaoke: "Kara",
 						synced: "Sync",
-						unsynced: "Unsync"
+						unsynced: "Unsync",
 					};
 					const label = labelMap[mode] || mode.charAt(0).toUpperCase() + mode.slice(1);
 					return react.createElement(
@@ -481,7 +481,7 @@ const ServiceOption = ({ item, onToggle, onSwap, isFirst = false, isLast = false
 									const newState = !modesOn[mode];
 									setModesOn({ ...modesOn, [mode]: newState });
 									if (onModeToggle) onModeToggle(item.name, mode, newState);
-								}
+								},
 							},
 							label
 						),
@@ -492,7 +492,7 @@ const ServiceOption = ({ item, onToggle, onSwap, isFirst = false, isLast = false
 								const newState = !modesOn[mode];
 								setModesOn({ ...modesOn, [mode]: newState });
 								if (onModeToggle) onModeToggle(item.name, mode, newState);
-							}
+							},
 						})
 					);
 				})

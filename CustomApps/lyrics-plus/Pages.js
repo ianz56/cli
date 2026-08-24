@@ -1,19 +1,130 @@
+const ContributorsMenu = react.memo(({ contributors }) => {
+	const menuRef = react.useRef(null);
+	return react.createElement(
+		"div",
+		{ className: "lyrics-contributors-button-container" },
+		react.createElement(
+			Spicetify.ReactComponent.TooltipWrapper,
+			{ label: "Musixmatch Contributors" },
+			react.createElement(
+				"div",
+				{ className: "lyrics-tooltip-wrapper" },
+				react.createElement(
+					Spicetify.ReactComponent.ContextMenu,
+					{
+						menu: react.createElement(
+							Spicetify.ReactComponent.Menu,
+							{},
+							react.createElement(
+								"div",
+								{ className: "lyrics-contributors-dropdown" },
+								react.createElement("div", { className: "lyrics-contributors-menu-header" }, "Contributors"),
+								react.createElement(
+									"div",
+									{ className: "lyrics-contributors-menu-list" },
+									contributors.map((c, i) =>
+										react.createElement(
+											"div",
+											{ key: c.name + i, className: "lyrics-contributor-menu-item" },
+											react.createElement("img", { src: c.avatar, className: "lyrics-contributor-menu-avatar" }),
+											react.createElement(
+												"div",
+												{ className: "lyrics-contributor-menu-info" },
+												react.createElement("span", { className: "lyrics-contributor-menu-name" }, c.name),
+												react.createElement(
+													"div",
+													{ className: "lyrics-contributor-menu-roles" },
+													c.roles.map((role, rIndex) =>
+														react.createElement("span", { key: rIndex, className: "lyrics-contributor-menu-role" }, role)
+													)
+												),
+												react.createElement(
+													"div",
+													{ className: "lyrics-contributor-menu-badges" },
+													c.rankName &&
+														react.createElement(
+															"span",
+															{
+																className: "lyrics-contributor-menu-badge",
+																style: { backgroundColor: c.rankColor ? `#${c.rankColor}` : "#1db954" },
+															},
+															react.createElement("img", { src: c.rankImageUrl, className: "lyrics-contributor-menu-badge-icon" }),
+															c.rankName.toUpperCase()
+														),
+													c.labels && c.labels.map((label, lIndex) =>
+														react.createElement(
+															"span",
+															{
+																key: "label-" + lIndex,
+																className: "lyrics-contributor-menu-badge",
+																style: { backgroundColor: "#1db954" },
+															},
+															label.toUpperCase()
+														)
+													)
+												)
+											)
+										)
+									)
+								)
+							)
+						),
+						trigger: "click",
+						action: "toggle",
+						renderInline: false,
+					},
+					react.createElement(
+						"button",
+						{ className: "lyrics-config-button", ref: menuRef },
+						react.createElement(
+							"svg",
+							{ width: 16, height: 16, viewBox: "0 0 16 16", fill: "currentColor" },
+							react.createElement("path", {
+								d: "M15 14s1 0 1-1-1-4-5-4-5 3-5 4 1 1 1 1h8Zm-7.978-1A.261.261 0 0 1 7 12.996c.001-.264.167-1.03.76-1.72C8.312 10.629 9.282 10 11 10c1.717 0 2.687.63 3.24 1.276.593.69.758 1.457.76 1.72l-.008.002a.274.274 0 0 1-.014.002H7.022ZM11 7a2 2 0 1 0 0-4 2 2 0 0 0 0 4Zm3-2a3 3 0 1 1-6 0 3 3 0 0 1 6 0ZM6.936 9.28a5.88 5.88 0 0 0-1.23-.247A7.35 7.35 0 0 0 5 9c-4 0-5 3-5 4 0 .667.333 1 1 1h4.216A2.238 2.238 0 0 1 5 13c0-1.01.377-2.042 1.09-2.904.243-.294.526-.569.846-.816ZM4.92 10A5.493 5.493 0 0 0 4 13H1c0-.266.167-1.03.76-1.72C2.312 10.629 3.282 10 5 10c.056 0 .111.002.166.005L5 10Zm-.904-4.692A2 2 0 1 1 3 5a2 2 0 0 1 1.016.308Zm-1.89.584A3 3 0 1 0 5.116 4.31a3 3 0 0 0-2.99 1.582Z",
+							})
+						)
+					)
+				)
+			)
+		)
+	);
+});
+
 const CreditFooter = react.memo(({ provider, copyright }) => {
 	if (provider === "local") return null;
 	const credit = [Spicetify.Locale.get("web-player.lyrics.providedBy", provider)];
+	
+	let contributors = null;
 	if (copyright) {
-		credit.push(...copyright.split("\n"));
+		const parts = copyright.split("__CONTRIBUTORS__");
+		const cleanCopyright = parts[0].trim();
+		if (cleanCopyright) {
+			credit.push(...cleanCopyright.split("\n"));
+		}
+		if (parts.length > 1) {
+			try {
+				contributors = JSON.parse(parts[1]);
+			} catch (e) {
+				console.error("Failed to parse contributors", e);
+			}
+		}
 	}
 
 	return (
 		provider &&
 		react.createElement(
-			"p",
-			{
-				className: "lyrics-lyricsContainer-Provider main-type-mesto",
-				dir: "auto",
-			},
-			credit.join(" • ")
+			react.Fragment,
+			null,
+			react.createElement(
+				"p",
+				{
+					className: "lyrics-lyricsContainer-Provider main-type-mesto",
+					dir: "auto",
+				},
+				credit.join(" • ")
+			),
+			contributors && contributors.length > 0 &&
+				react.createElement(ContributorsMenu, { contributors })
 		)
 	);
 });
@@ -271,7 +382,7 @@ const SyncedLyricsPage = react.memo(({ lyrics = [], provider, copyright, isKara 
 		return line.startTime != null && line.endTime != null && position >= line.startTime && position <= line.endTime;
 	});
 
-	const { activeLines, startLineIndex, activeElementIndex, nonPausePrefixCounts } = useMemo(() => {
+	const { activeLines, startLineIndex, activeElementIndex } = useMemo(() => {
 		// Keep a bounded window of lines around the active line.
 		// A spacer element at the top of the list compensates for the height of
 		// lines removed from the front, keeping the active line's offsetTop stable
@@ -289,16 +400,10 @@ const SyncedLyricsPage = react.memo(({ lyrics = [], provider, copyright, isKara 
 			}
 		}
 
-		const prefixCounts = new Array(lyricWithEmptyLines.length + 1).fill(0);
-		for (let i = 0; i < lyricWithEmptyLines.length; i++) {
-			prefixCounts[i + 1] = prefixCounts[i] + (lyricWithEmptyLines[i].isPause ? 0 : 1);
-		}
-
 		return {
 			activeLines: lyricWithEmptyLines.slice(startIndex, endIndex + 1),
 			startLineIndex: startIndex,
 			activeElementIndex: activeLineIndex - startIndex,
-			nonPausePrefixCounts: prefixCounts,
 		};
 	}, [activeLineIndex, lyricWithEmptyLines, CONFIG.visual["lines-after"], CONFIG.visual["lines-before"]]);
 
@@ -324,7 +429,12 @@ const SyncedLyricsPage = react.memo(({ lyrics = [], provider, copyright, isKara 
 		const fontSize = Number(CONFIG.visual["font-size"]) || 32;
 		const lyricsLineHeight = fontSize + 4;
 
-		const nonPauseCount = nonPausePrefixCounts[startLineIndex];
+		let nonPauseCount = 0;
+		for (let k = 0; k < startLineIndex; k++) {
+			if (!lyricWithEmptyLines[k].isPause) {
+				nonPauseCount++;
+			}
+		}
 
 		spacerRef.current.style.height = nonPauseCount > 0 && lyricsLineHeight > 0 ? `${nonPauseCount * lyricsLineHeight}px` : "0px";
 	};
@@ -1090,22 +1200,74 @@ const WordModePage = react.memo(({ lyrics, provider, copyright, fontSize = 32 })
 			const words = buildWords(syllableData, line.startTime);
 			if (words.length > 0) {
 				const rows = [];
-				let i = 0;
-				while (i < words.length) {
-					const rowIdx = runningRowCount + rows.length;
-					const { basePx, baseCqw, maxWords } = wordModeGetRowConfig(rowIdx, fontSize);
-					const rowWords = words.slice(i, i + maxWords);
+				// Initial Grouping: Tentukan pembagian kata agar rata menjadi maksimal 3 baris
+				let groups = [];
+				if (words.length <= 3) {
+					groups = words.map(w => [w]);
+				} else {
+					let base = Math.floor(words.length / 3);
+					let remainder = words.length % 3;
+					let idx = 0;
+					for (let j = 0; j < 3; j++) {
+						let size = base + (remainder > 0 ? 1 : 0);
+						if (size > 0) {
+							groups.push(words.slice(idx, idx + size));
+							idx += size;
+						}
+						remainder--;
+					}
+				}
 
-					// Calculate total characters in this row (including spaces between words)
+				// Refinement: Gabungkan kata pendek (<= 3 huruf) agar tidak sendirian di satu baris
+				for (let i = 0; i < groups.length; i++) {
+					if (groups[i].length === 1 && groups.length > 1) {
+						let text = groups[i][0].text.trim();
+						// Jika kata terdiri dari <= 3 huruf (contoh: "Di", "Ku", "Dan", "Kau")
+						// Gabungkan dengan baris sebelum/sesudahnya
+						if (text.length <= 3) {
+							if (i > 0 && i < groups.length - 1) {
+								if (groups[i - 1].length <= groups[i + 1].length) {
+									groups[i - 1].push(groups[i][0]);
+								} else {
+									groups[i + 1].unshift(groups[i][0]);
+								}
+								groups.splice(i, 1);
+								i--;
+							} else if (i > 0) {
+								groups[i - 1].push(groups[i][0]);
+								groups.splice(i, 1);
+								i--;
+							} else if (i < groups.length - 1) {
+								groups[i + 1].unshift(groups[i][0]);
+								groups.splice(i, 1);
+								i--;
+							}
+						}
+					}
+				}
+
+				for (let r = 0; r < groups.length; r++) {
+					const rowWords = groups[r];
+					const rowIdx = runningRowCount + rows.length;
+
 					const charCount = rowWords.reduce((sum, w) => sum + w.text.length, 0) + Math.max(0, rowWords.length - 1);
 
-					// A bold uppercase character is typically ~0.65em wide.
-					// We want the total width (charCount * 0.65 * fontSizeCqw) to be <= 90cqw (leaving 10cqw for padding).
-					// So: fontSizeCqw <= 90 / (charCount * 0.65) = 138 / charCount
-					const safeCqw = (138 / Math.max(1, charCount)).toFixed(2);
-
-					// Take the minimum of the basePx, baseCqw, and the safeCqw to guarantee it fits
-					const rowFontSizeStr = `min(${basePx}px, ${baseCqw}cqw, ${safeCqw}cqw)`;
+					// Target width berpatokan pada fontSize dari setting pengguna
+					// Semakin kecil fontSize di setting, target lebar keseluruhan juga mengecil
+					const targetCqw = (fontSize / 32) * 35; 
+					
+					let calculatedCqw = targetCqw / Math.max(1, charCount);
+					
+					// Batasi ukuran maksimal agar tidak jomplang dengan font normal di luar mode ini
+					const maxCqw = (fontSize / 32) * 3.5; 
+					const minCqw = (fontSize / 32) * 1.0;  
+					
+					calculatedCqw = Math.max(minCqw, Math.min(maxCqw, calculatedCqw));
+					
+					// Tetap ada pengaman cqh agar aman
+					const maxCqh = (fontSize / 32) * 9;
+					
+					const rowFontSizeStr = `min(${calculatedCqw.toFixed(2)}cqw, ${maxCqh.toFixed(2)}cqh)`;
 
 					rows.push({
 						words: rowWords,
@@ -1113,7 +1275,6 @@ const WordModePage = react.memo(({ lyrics, provider, copyright, fontSize = 32 })
 						fontSize: rowFontSizeStr,
 						rowIndex: rowIdx,
 					});
-					i += maxWords;
 				}
 
 				runningRowCount += rows.length;

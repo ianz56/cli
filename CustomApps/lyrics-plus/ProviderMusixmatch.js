@@ -57,7 +57,9 @@ const ProviderMusixmatch = (() => {
 			q_duration: durr,
 			f_subtitle_length: Math.floor(durr),
 			usertoken: CONFIG.providers.musixmatch.token,
-			part: "track_lyrics_translation_status,track_structure,track_performer_tagging",
+			optional_calls: "track.richsync",
+			richsync_compact_type: "words",
+			part: "track_lyrics_translation_status,lyrics_crowd,user,subtitle_translated,lyrics_translated,attribution,itunes_commontrack_ids,lyrics_verified_by,labels,track_structure,artist,track_performer_tagging",
 		};
 
 		const finalURL =
@@ -87,6 +89,37 @@ const ProviderMusixmatch = (() => {
 		const meta = body?.["matcher.track.get"]?.message?.body;
 		const availableTranslations = Array.isArray(translationStatus) ? [...new Set(translationStatus.map((status) => status?.to).filter(Boolean))] : [];
 
+		// Extract contributors
+		const contributorsMap = new Map();
+		const addContributor = (u, role) => {
+			if (u && u.uaid && u.user_name) {
+				let existing = contributorsMap.get(u.uaid);
+				if (existing) {
+					if (!existing.roles.includes(role)) existing.roles.push(role);
+					if (u.labels && Array.isArray(u.labels)) {
+						u.labels.forEach(label => {
+							if (!existing.labels.includes(label)) existing.labels.push(label);
+						});
+					}
+				} else {
+					contributorsMap.set(u.uaid, {
+						name: u.user_name,
+						avatar: u.user_profile_photo,
+						rankName: u.rank_name,
+						rankColor: u.rank_color,
+						rankImageUrl: u.rank_image_url,
+						labels: Array.isArray(u.labels) ? [...u.labels] : [],
+						roles: [role]
+					});
+				}
+			}
+		};
+		addContributor(body["track.lyrics.get"]?.message?.body?.lyrics?.lyrics_user?.user, "Lyrics Editor");
+		addContributor(body["track.subtitles.get"]?.message?.body?.subtitle_list?.[0]?.subtitle?.subtitle_user?.user, "Line Syncer");
+		addContributor(body["track.richsync.get"]?.message?.body?.richsync?.richsync_user?.user, "Word Syncer");
+
+		const contributorsArray = Array.from(contributorsMap.values());
+
 		Object.defineProperties(body, {
 			__musixmatchTranslationStatus: {
 				value: availableTranslations,
@@ -94,6 +127,9 @@ const ProviderMusixmatch = (() => {
 			__musixmatchTrackId: {
 				value: meta?.track?.track_id ?? null,
 			},
+			__musixmatchContributors: {
+				value: contributorsArray,
+			}
 		});
 
 		return body;
@@ -230,29 +266,12 @@ const ProviderMusixmatch = (() => {
 			return null;
 		}
 
-		const baseURL = "https://apic-appmobile.musixmatch.com/ws/1.1/track.richsync.get?format=json&subtitle_format=mxm&app_id=mac-ios-v2.0&";
-
-		const params = {
-			f_subtitle_length: meta.track.track_length,
-			q_duration: meta.track.track_length,
-			commontrack_id: meta.track.commontrack_id,
-			usertoken: CONFIG.providers.musixmatch.token,
-		};
-
-		const finalURL =
-			baseURL +
-			Object.keys(params)
-				.map((key) => `${key}=${encodeURIComponent(params[key])}`)
-				.join("&");
-
-		let result = await Spicetify.CosmosAsync.get(finalURL, null, headers);
-
-		if (result.message.header.status_code !== 200) {
+		const richsyncCall = body?.["track.richsync.get"];
+		if (!richsyncCall || richsyncCall.message.header.status_code !== 200 || !richsyncCall.message.body.richsync) {
 			return null;
 		}
 
-		result = result.message.body;
-
+		const result = richsyncCall.message.body;
 		const snippetQueue = parsePerformerData(meta);
 
 		const parsedKaraoke = JSON.parse(result.richsync.richsync_body).map((line) => {

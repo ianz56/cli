@@ -17,3 +17,6 @@ package.json
 install.log
 
 pnpm-lock.yaml
+
+CustomApps/lyrics-plus.zip
+CustomApps/lyrics-plus/RELEASE_NOTES.md

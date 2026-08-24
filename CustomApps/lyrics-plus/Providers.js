@@ -69,20 +69,28 @@ const Providers = {
 			return result;
 		}
 
+		const appendContributors = (text) => {
+			let resultText = text || "";
+			if (list.__musixmatchContributors && list.__musixmatchContributors.length > 0) {
+				resultText += "\n__CONTRIBUTORS__" + JSON.stringify(list.__musixmatchContributors);
+			}
+			return resultText.trim();
+		};
+
 		const karaoke = await ProviderMusixmatch.getKaraoke(list);
 		if (karaoke) {
 			result.karaoke = karaoke;
-			result.copyright = list["track.lyrics.get"].message?.body?.lyrics?.lyrics_copyright?.trim();
+			result.copyright = appendContributors(list["track.lyrics.get"].message?.body?.lyrics?.lyrics_copyright);
 		}
 		const synced = ProviderMusixmatch.getSynced(list);
 		if (synced) {
 			result.synced = synced;
-			result.copyright = list["track.subtitles.get"].message?.body?.subtitle_list?.[0]?.subtitle.lyrics_copyright.trim();
+			result.copyright = appendContributors(list["track.subtitles.get"].message?.body?.subtitle_list?.[0]?.subtitle.lyrics_copyright);
 		}
 		const unsynced = synced || ProviderMusixmatch.getUnsynced(list);
 		if (unsynced) {
 			result.unsynced = unsynced;
-			result.copyright = list["track.lyrics.get"].message?.body?.lyrics?.lyrics_copyright?.trim();
+			result.copyright = appendContributors(list["track.lyrics.get"].message?.body?.lyrics?.lyrics_copyright);
 		}
 		result.musixmatchAvailableTranslations = Array.isArray(list.__musixmatchTranslationStatus) ? list.__musixmatchTranslationStatus : [];
 		result.musixmatchTrackId = list.__musixmatchTrackId ?? null;

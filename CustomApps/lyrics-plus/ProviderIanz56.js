@@ -70,6 +70,41 @@ const ProviderIanz56 = (() => {
 		const ianz56Translation = [];
 		let hasTranslation = false;
 
+		const agentsMap = new Map();
+		const rawAgents = lyricsJson.meta?.agents || lyricsJson.meta?.performers || lyricsJson.agents || [];
+		if (Array.isArray(rawAgents)) {
+			rawAgents.forEach((agent) => {
+				if (agent && agent.id && agent.name) {
+					agentsMap.set(agent.id, agent.name);
+				}
+			});
+		} else if (rawAgents && typeof rawAgents === "object") {
+			Object.entries(rawAgents).forEach(([id, val]) => {
+				if (typeof val === "string") {
+					agentsMap.set(id, val);
+				} else if (val && val.name) {
+					agentsMap.set(id, val.name);
+				}
+			});
+		}
+
+		function resolvePerformer(line) {
+			if (!line) return null;
+			if (line.performer && typeof line.performer === "string") return line.performer;
+			if (line.agent) {
+				if (typeof line.agent === "string") {
+					return agentsMap.get(line.agent) || line.agent;
+				}
+				if (typeof line.agent === "object" && line.agent.name) {
+					return line.agent.name;
+				}
+			}
+			if (line.agentId) {
+				return agentsMap.get(line.agentId) || line.agentId;
+			}
+			return null;
+		}
+
 		/**
 		 * Fill time gaps between words with empty "spacer" words
 		 * to ensure the renderer's sequential "startTime += duration" logic works correctly.
@@ -119,6 +154,7 @@ const ProviderIanz56 = (() => {
 		}
 
 		lines.forEach((line) => {
+			const performer = resolvePerformer(line);
 			const lineStartRaw = line.start ?? line.begin ?? 0;
 			const lineEndRaw = line.end ?? lineStartRaw;
 
@@ -169,6 +205,7 @@ const ProviderIanz56 = (() => {
 				isBackground: isMainBackground,
 				// Separate background vocal track
 				background: backgroundWords.length > 0 ? backgroundWords : undefined,
+				performer: performer || undefined,
 			});
 
 			const mainTextStr = (line.text || "").trim();
@@ -197,14 +234,15 @@ const ProviderIanz56 = (() => {
 				endTime: Math.round(lineEndTime * 1000),
 				text: isInline ? combinedText : mainTextStr || "",
 				background: !isInline && backgroundWords.length ? backgroundWords : undefined,
+				performer: performer || undefined,
 			});
 
 			if (isInline) {
-				if (combinedText) unsynced.push({ startTime: Math.round(lineStartTime * 1000), text: combinedText });
+				if (combinedText) unsynced.push({ startTime: Math.round(lineStartTime * 1000), text: combinedText, performer: performer || undefined });
 			} else {
 				let valText = mainTextStr;
 				if (bgTextStr) valText += ` (${bgTextStr})`;
-				if (valText) unsynced.push({ startTime: Math.round(lineStartTime * 1000), text: valText });
+				if (valText) unsynced.push({ startTime: Math.round(lineStartTime * 1000), text: valText, performer: performer || undefined });
 			}
 
 			const translatedText = (line.translation || line.romanization || "").trim();
@@ -215,6 +253,7 @@ const ProviderIanz56 = (() => {
 				endTime: Math.round(lineEndTime * 1000),
 				text: translatedText || combinedText,
 				originalText: combinedText,
+				performer: performer || undefined,
 			});
 		});
 

@@ -593,10 +593,7 @@ const SyncedLyricsPage = react.memo(({ lyrics = [], provider, copyright, isKara 
 						react.createElement(
 							"p",
 							{
-								style: {
-									opacity: 0.5,
-									fontSize: "0.9em",
-								},
+								className: "lyrics-lyricsContainer-LyricsLine-translated",
 								onContextMenu: (event) => {
 									event.preventDefault();
 									Spicetify.Platform.ClipboardAPI.copy(Utils.convertParsedToLRC(lyrics, belowMode).conver)
@@ -1025,7 +1022,7 @@ const SyncedExpandedLyricsPage = react.memo(({ lyrics, provider, copyright, isKa
 					react.createElement(
 						"p",
 						{
-							style: { opacity: 0.5 },
+							className: "lyrics-lyricsContainer-LyricsLine-translated",
 							onContextMenu: (event) => {
 								event.preventDefault();
 								Spicetify.Platform.ClipboardAPI.copy(Utils.convertParsedToLRC(lyrics, belowMode).conver)
@@ -1512,7 +1509,7 @@ const UnsyncedLyricsPage = react.memo(({ lyrics, provider, copyright }) => {
 					react.createElement(
 						"p",
 						{
-							style: { opacity: 0.5 },
+							className: "lyrics-lyricsContainer-LyricsLine-translated",
 							onContextMenu: (event) => {
 								event.preventDefault();
 								Spicetify.Platform.ClipboardAPI.copy(Utils.convertParsedToUnsynced(lyrics, belowMode).conver)

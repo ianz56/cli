@@ -1,218 +1,66 @@
 const ProviderIanz56 = (() => {
-	const BASE_URL = "https://raw.githubusercontent.com/ianz56/lyrics-ttml/main/";
-
-	let indexCache = null;
-	let lastIndexFetch = 0;
-	const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+	const DEFAULT_BASE_URL = "http://192.168.1.11:4000/api/v1";
 
 	/**
-	 * Normalize string for comparison (lowercase, remove special chars, trim)
-	 * @param {string} s
+	 * Get Syl-DB Base URL (supports localStorage override if configured)
 	 * @returns {string}
 	 */
-	function normalize(s) {
-		if (!s) return "";
-		return s
-			.toLowerCase()
-			.normalize("NFD")
-			.replace(/[\u0300-\u036f]/g, "") // Remove diacritics
-			.replace(/[^\w\s]/g, "") // Remove special characters
-			.replace(/\s+/g, " ") // Normalize whitespace
-			.trim();
-	}
-
-	/**
-	 * Split artist string into normalized parts
-	 * @param {string} s
-	 * @returns {string[]}
-	 */
-	function getArtistParts(s) {
-		if (!s) return [];
-		return s
-			.split(/\s*[,/&]\s*|\s+(?:feat\.?|ft\.?|and|with)\s+/i)
-			.map(normalize)
-			.filter((p) => p.length > 0);
-	}
-
-	/**
-	 * Fetch the index.json from GitHub
-	 * @returns {Promise<Array>}
-	 */
-	async function fetchIndex() {
-		const now = Date.now();
-		const indexUrl = BASE_URL + "index.json?t=" + now;
-		if (indexCache && now - lastIndexFetch < CACHE_DURATION) {
-			return indexCache;
+	function getBaseUrl() {
+		try {
+			const customUrl = localStorage.getItem("lyrics-plus:provider:ianz56:server");
+			if (customUrl && customUrl.trim()) {
+				return customUrl.trim().replace(/\/+$/, "");
+			}
+		} catch {
+			// localStorage unavailable in non-browser env
 		}
-
-		// Fallback to regular fetch
-		const response = await fetch(indexUrl);
-		if (!response.ok) {
-			throw new Error(`Failed to fetch index: ${response.status}`);
-		}
-
-		indexCache = await response.json();
-		lastIndexFetch = now;
-		return indexCache;
+		return DEFAULT_BASE_URL;
 	}
 
 	/**
-	 * Find matching entry in index by artist and title
+	 * Fetch lyrics JSON directly from Syl-DB via /search endpoint
 	 * @param {string} artist
 	 * @param {string} title
-	 * @param {Array} index
-	 * @returns {Object|null}
-	 */
-	function findMatch(artist, title, index) {
-		const normalizedArtist = normalize(artist);
-		const artistParts = getArtistParts(artist);
-		const normalizedTitle = normalize(title);
-
-		// First try exact match
-		const match = index.find((entry) => {
-			const entryArtist = normalize(entry.artist);
-			const entryTitle = normalize(entry.title);
-			return entryArtist === normalizedArtist && entryTitle === normalizedTitle;
-		});
-
-		if (match) return match;
-
-		// Try canonical artist match (same parts, any order)
-		if (artistParts.length > 1) {
-			const sortedArtist = [...artistParts].sort().join("|");
-			const canonicalMatch = index.find((entry) => {
-				const entryParts = getArtistParts(entry.artist);
-				if (entryParts.length !== artistParts.length) return false;
-				const sortedEntry = entryParts.sort().join("|");
-				return sortedArtist === sortedEntry && normalize(entry.title) === normalizedTitle;
-			});
-
-			if (canonicalMatch) return canonicalMatch;
-		}
-
-		// Try partial match (artist contains or title contains)
-		const partialMatches = index.filter((entry) => {
-			if (!normalizedArtist) return false;
-			const entryArtist = normalize(entry.artist);
-			const entryTitle = normalize(entry.title);
-
-			const entryParts = getArtistParts(entry.artist);
-			const artistOverlap = artistParts.some((p) => entryParts.includes(p)) || entryParts.some((p) => artistParts.includes(p));
-
-			return (
-				(artistOverlap || entryArtist.includes(normalizedArtist) || normalizedArtist.includes(entryArtist)) &&
-				(entryTitle.includes(normalizedTitle) || normalizedTitle.includes(entryTitle))
-			);
-		});
-
-		if (partialMatches.length > 0) {
-			const scoredMatches = partialMatches.map((entry) => {
-				const entryArtist = normalize(entry.artist);
-				const entryTitle = normalize(entry.title);
-				const entryParts = getArtistParts(entry.artist);
-				let score = 0;
-
-				// Artist score
-				if (entryArtist === normalizedArtist) {
-					score += 100;
-				} else {
-					const intersection = artistParts.filter((p) => entryParts.includes(p));
-					if (intersection.length > 0) {
-						score += 50 + (intersection.length / Math.max(artistParts.length, entryParts.length)) * 40;
-					} else if (entryArtist.includes(normalizedArtist) || normalizedArtist.includes(entryArtist)) {
-						score += 30;
-					}
-				}
-
-				// Title score
-				if (entryTitle === normalizedTitle) score += 200;
-				else if (entryTitle.startsWith(normalizedTitle)) score += 150;
-				else if (normalizedTitle.startsWith(entryTitle)) {
-					score += 120;
-					score -= Math.abs(normalizedTitle.length - entryTitle.length);
-				} else if (entryTitle.includes(normalizedTitle)) score += 100;
-				else if (normalizedTitle.includes(entryTitle)) {
-					score += 80;
-					score -= Math.abs(normalizedTitle.length - entryTitle.length);
-				}
-
-				return { entry, score };
-			});
-
-			scoredMatches.sort((a, b) => b.score - a.score);
-			return scoredMatches[0].entry;
-		}
-
-		// Try title-only match (for cases where artist field is empty in index)
-		const titleOnlyMatches = index.filter((entry) => {
-			const entryArtist = normalize(entry.artist);
-			const entryTitle = normalize(entry.title);
-
-			// If artist is empty, allow partial title match (legacy behavior)
-			if (!entryArtist) {
-				return entryTitle === normalizedTitle || entryTitle.includes(normalizedTitle) || normalizedTitle.includes(entryTitle);
-			}
-
-			// Require exact title match AND some artist overlap
-			const entryParts = getArtistParts(entry.artist);
-			const artistOverlap = artistParts.some((p) => entryParts.includes(p)) || entryParts.some((p) => artistParts.includes(p));
-			return entryTitle === normalizedTitle && (artistOverlap || entryArtist.includes(normalizedArtist) || normalizedArtist.includes(entryArtist));
-		});
-
-		if (titleOnlyMatches.length > 0) {
-			const scoredMatches = titleOnlyMatches.map((entry) => {
-				const entryTitle = normalize(entry.title);
-				let score = 0;
-
-				// Title score
-				if (entryTitle === normalizedTitle) score += 200;
-				else if (entryTitle.startsWith(normalizedTitle)) score += 150;
-				else if (normalizedTitle.startsWith(entryTitle)) {
-					score += 120;
-					score -= Math.abs(normalizedTitle.length - entryTitle.length);
-				} else if (entryTitle.includes(normalizedTitle)) score += 100;
-				else if (normalizedTitle.includes(entryTitle)) {
-					score += 80;
-					score -= Math.abs(normalizedTitle.length - entryTitle.length);
-				}
-
-				return { entry, score };
-			});
-
-			scoredMatches.sort((a, b) => b.score - a.score);
-			return scoredMatches[0].entry;
-		}
-
-		return null;
-	}
-
-	/**
-	 * Fetch and parse the JSON lyrics file
-	 * @param {string} jsonPath
 	 * @returns {Promise<Object>}
 	 */
-	async function fetchLyricsJson(jsonPath) {
-		// jsonPath is like "./JSON/IND/Artist - Title.json"
-		// Remove leading "./" and construct full URL
-		const path = jsonPath.replace(/^\.\//, "");
-		const encodedPath = path.split("/").map(encodeURIComponent).join("/");
-		const url = BASE_URL + encodedPath;
+	async function fetchLyricsFromDB(artist, title) {
+		const baseUrl = getBaseUrl();
 
-		const response = await fetch(url);
-		if (!response.ok) {
-			throw new Error(`Failed to fetch lyrics: ${response.status}`);
+		// Strategy 1: Search using title & artist parameters with format=json
+		const params = new URLSearchParams();
+		if (title) params.append("title", title);
+		if (artist) params.append("artist", artist);
+		params.append("format", "json");
+
+		let url = `${baseUrl}/search?${params.toString()}`;
+		let response = await fetch(url);
+
+		if (response.ok) {
+			return response.json();
 		}
 
-		return response.json();
+		// Strategy 2: Fallback to unified query 'q' with format=json
+		const query = `${artist || ""} ${title || ""}`.trim();
+		if (query) {
+			const fallbackParams = new URLSearchParams({
+				q: query,
+				format: "json",
+			});
+			url = `${baseUrl}/search?${fallbackParams.toString()}`;
+			response = await fetch(url);
+			if (response.ok) {
+				return response.json();
+			}
+		}
+
+		throw new Error(`Lyrics not found in Syl-DB (${response.status})`);
 	}
 
 	/**
-	 * Convert JSON lyrics format to karaoke format for lyrics-plus
-	 * Input format: { lines: [{ begin, end, text, words: [{ text, begin, end }] }] }
-	 * Output format for karaoke: [{ startTime (ms), endTime (ms), text: [{ word, time (duration in ms) }] }]
-	 * Output format for synced: [{ startTime (ms), text (string) }]
+	 * Convert Syl-DB JSON / Canonical AST format to karaoke format for lyrics-plus
+	 * Supports start/begin, bgVocal/backgroundVocal, translation/romanization
 	 * @param {Object} lyricsJson
-	 * @returns {{ karaoke: Array, synced: Array }}
+	 * @returns {{ karaoke: Array, synced: Array, unsynced: Array, ianz56Translation: Array|null }}
 	 */
 	function convertToKaraokeFormat(lyricsJson) {
 		const lines = lyricsJson.lines || [];
@@ -235,12 +83,11 @@ const ProviderIanz56 = (() => {
 			let currentTime = lineStartTime;
 
 			words.forEach((word, i) => {
-				const begin = word.begin;
-				const end = word.end;
+				const begin = word.start ?? word.begin ?? currentTime;
+				const end = word.end ?? begin;
 
-				// Gap before word
+				// Gap before word (10ms tolerance)
 				if (begin > currentTime + 0.01) {
-					// 10ms tolerance
 					processed.push({
 						word: "",
 						time: Math.round((begin - currentTime) * 1000),
@@ -249,7 +96,7 @@ const ProviderIanz56 = (() => {
 				}
 
 				// The word itself
-				let wordText = word.text;
+				let wordText = word.text || "";
 				// Sanitize background vocal parens
 				if (isBackground) {
 					wordText = wordText.replace(/^[(]+|[)]+$/g, "");
@@ -261,7 +108,7 @@ const ProviderIanz56 = (() => {
 
 				processed.push({
 					word: wordText,
-					time: Math.round((end - begin) * 1000),
+					time: Math.round(Math.max(0, end - begin) * 1000),
 					isBackground: isBackground,
 				});
 
@@ -272,15 +119,22 @@ const ProviderIanz56 = (() => {
 		}
 
 		lines.forEach((line) => {
-			const mainStart = line.begin;
-			let bgStart = mainStart;
+			const lineStartRaw = line.start ?? line.begin ?? 0;
+			const lineEndRaw = line.end ?? lineStartRaw;
 
-			if (line.backgroundVocal?.words?.length > 0) {
-				bgStart = line.backgroundVocal.words[0].begin;
+			const bgVocalObj = line.bgVocal || line.backgroundVocal;
+			const bgWordsList = bgVocalObj?.words || [];
+
+			let bgStart = lineStartRaw;
+			if (bgWordsList.length > 0) {
+				const firstBgStart = bgWordsList[0].start ?? bgWordsList[0].begin;
+				if (typeof firstBgStart === "number") {
+					bgStart = firstBgStart;
+				}
 			}
 
 			// The line should start at the earliest timestamp
-			const lineStartTime = Math.min(mainStart, bgStart);
+			const lineStartTime = Math.min(lineStartRaw, bgStart);
 
 			// Process main vocals
 			const mainWords = processWords(line.words || [], lineStartTime, false);
@@ -289,23 +143,21 @@ const ProviderIanz56 = (() => {
 			let backgroundWords = [];
 			let backgroundStartTime = 0;
 			let backgroundEndTime = 0;
-			if (line.backgroundVocal?.words) {
-				const bgWords = line.backgroundVocal.words;
-				if (bgWords.length > 0) {
-					backgroundStartTime = bgWords[0].begin * 1000; // in ms
-					backgroundEndTime = bgWords[bgWords.length - 1].end * 1000;
-					backgroundWords = processWords(bgWords, lineStartTime, true);
-				}
+			if (bgWordsList.length > 0) {
+				const firstBg = bgWordsList[0].start ?? bgWordsList[0].begin ?? lineStartTime;
+				const lastBg = bgWordsList[bgWordsList.length - 1].end ?? firstBg;
+				backgroundStartTime = firstBg * 1000; // in ms
+				backgroundEndTime = lastBg * 1000;
+				backgroundWords = processWords(bgWordsList, lineStartTime, true);
 			}
 
 			const isMainBackground = (line.words || []).length > 0 && (line.words || []).every((w) => w.isBackground);
 
 			// Calculate the effective end time (max of main line end and background vocal end)
-			let lineEndTime = line.end;
-			if (line.backgroundVocal?.words && line.backgroundVocal.words.length > 0) {
-				const bgWords = line.backgroundVocal.words;
-				const bgEndTime = bgWords[bgWords.length - 1].end;
-				lineEndTime = Math.max(lineEndTime, bgEndTime);
+			let lineEndTime = lineEndRaw;
+			if (bgWordsList.length > 0) {
+				const lastBgEnd = bgWordsList[bgWordsList.length - 1].end ?? lineEndRaw;
+				lineEndTime = Math.max(lineEndTime, lastBgEnd);
 			}
 
 			karaoke.push({
@@ -320,22 +172,25 @@ const ProviderIanz56 = (() => {
 			});
 
 			const mainTextStr = (line.text || "").trim();
-			const bgTextStr = backgroundWords
-				.map((w) => w.word)
-				.join("")
-				.replace(/\s+/g, " ")
-				.trim();
+			const bgTextStr =
+				typeof bgVocalObj?.text === "string" && bgVocalObj.text.trim()
+					? bgVocalObj.text.replace(/^[(]+|[)]+$/g, "").trim()
+					: backgroundWords
+							.map((w) => w.word)
+							.join("")
+							.replace(/\s+/g, " ")
+							.trim();
 
 			let combinedText = mainTextStr;
 			if (bgTextStr) {
-				if (bgStart < mainStart) {
+				if (bgStart < lineStartRaw) {
 					combinedText = `(${bgTextStr}) ${combinedText}`.trim();
 				} else {
 					combinedText = `${combinedText} (${bgTextStr})`.trim();
 				}
 			}
 
-			const isInline = CONFIG?.visual?.["synced-background-inline"] ?? true;
+			const isInline = typeof CONFIG !== "undefined" ? (CONFIG?.visual?.["synced-background-inline"] ?? true) : true;
 
 			synced.push({
 				startTime: Math.round(lineStartTime * 1000),
@@ -352,7 +207,7 @@ const ProviderIanz56 = (() => {
 				if (valText) unsynced.push({ startTime: Math.round(lineStartTime * 1000), text: valText });
 			}
 
-			const translatedText = (line.translation || "").trim();
+			const translatedText = (line.translation || line.romanization || "").trim();
 			if (translatedText) hasTranslation = true;
 
 			ianz56Translation.push({
@@ -390,18 +245,7 @@ const ProviderIanz56 = (() => {
 		};
 
 		try {
-			const index = await fetchIndex();
-			const match = findMatch(info.artist, info.title, index);
-
-			if (!match) {
-				throw new Error("No matching lyrics found");
-			}
-
-			if (!match.jsonPath) {
-				throw new Error("No JSON path in matched entry");
-			}
-
-			const lyricsJson = await fetchLyricsJson(match.jsonPath);
+			const lyricsJson = await fetchLyricsFromDB(info.artist, info.title);
 			const { karaoke, synced, unsynced, ianz56Translation } = convertToKaraokeFormat(lyricsJson);
 
 			result.karaoke = karaoke.length > 0 ? karaoke : null;
@@ -418,9 +262,7 @@ const ProviderIanz56 = (() => {
 
 	return {
 		findLyrics,
-		fetchIndex,
-		normalize,
-		findMatch,
+		fetchLyricsFromDB,
 		convertToKaraokeFormat,
 	};
 })();

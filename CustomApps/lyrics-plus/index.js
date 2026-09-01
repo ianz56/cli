@@ -74,7 +74,7 @@ const CONFIG = {
 	providers: {
 		ianz56: {
 			on: getConfig("lyrics-plus:provider:ianz56:on"),
-			desc: 'Lyrics sourced from <a href="https://github.com/ianz56">ianz56 repository</a>. Parses JSON formatted lyrics.',
+			desc: 'Lyrics sourced from Syl-DB (ianz56). Parses JSON formatted lyrics.',
 			modes: [KARAOKE, SYNCED, UNSYNCED],
 			modesOn: {
 				karaoke: getConfig("lyrics-plus:provider:ianz56:on:karaoke", true),

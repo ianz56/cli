@@ -212,7 +212,7 @@ const TranslationMenu = react.memo(({ mode, friendlyLanguage, hasTranslation, mu
 		if (hasTranslation.ianz56) {
 			sourceOptions = {
 				...sourceOptions,
-				ianz56Translation: "ianz56 repo",
+				ianz56Translation: "Syl-DB (ianz56)",
 			};
 		}
 

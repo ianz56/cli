@@ -523,8 +523,25 @@ func callMPRISRoot(method string) {
 	_ = obj.Call("org.mpris.MediaPlayer2."+method, 0).Err
 }
 
+
+var (
+	attachedWindowID string
+	attachedWinMu    sync.Mutex
+)
+
+func isWindowValid(id string) bool {
+	if id == "" {
+		return false
+	}
+	out, err := exec.Command("xprop", "-id", id, "WM_CLASS").Output()
+	if err != nil {
+		return false
+	}
+	return strings.Contains(strings.ToLower(string(out)), "spotify")
+}
+
 func (s *GlobalMenuService) watchSpotifyWindows(stopChan <-chan struct{}) {
-	ticker := time.NewTicker(1500 * time.Millisecond)
+	ticker := time.NewTicker(3000 * time.Millisecond)
 	defer ticker.Stop()
 
 	for {
@@ -533,34 +550,52 @@ func (s *GlobalMenuService) watchSpotifyWindows(stopChan <-chan struct{}) {
 			s.detachAllSpotifyWindows()
 			return
 		case <-ticker.C:
+			attachedWinMu.Lock()
+			if attachedWindowID != "" {
+				if isWindowValid(attachedWindowID) {
+					attachedWinMu.Unlock()
+					continue
+				}
+				attachedWindowID = ""
+			}
+			attachedWinMu.Unlock()
+
 			s.attachSpotifyWindows()
 		}
 	}
 }
 
 func (s *GlobalMenuService) attachSpotifyWindows() {
-	winIDs := findSpotifyWindows()
-	for _, id := range winIDs {
-		out, err := exec.Command("xprop", "-id", id, "_KDE_NET_WM_APPMENU_SERVICE_NAME").Output()
-		if err != nil || !strings.Contains(string(out), dbusServiceName) {
-			_ = exec.Command("xprop", "-id", id, "-f", "_KDE_NET_WM_APPMENU_SERVICE_NAME", "8s", "-set", "_KDE_NET_WM_APPMENU_SERVICE_NAME", dbusServiceName).Run()
-			_ = exec.Command("xprop", "-id", id, "-f", "_KDE_NET_WM_APPMENU_OBJECT_PATH", "8s", "-set", "_KDE_NET_WM_APPMENU_OBJECT_PATH", dbusMenuPath).Run()
-			utils.PrintSuccess(fmt.Sprintf("Global Menu attached to Spotify window: %s", id))
-		}
+	mainWin := findMainSpotifyWindow()
+	if mainWin == "" {
+		return
 	}
+
+	out, _ := exec.Command("xprop", "-id", mainWin, "_KDE_NET_WM_APPMENU_SERVICE_NAME").Output()
+	if !strings.Contains(string(out), dbusServiceName) {
+		_ = exec.Command("xprop", "-id", mainWin, "-f", "_KDE_NET_WM_APPMENU_SERVICE_NAME", "8s", "-set", "_KDE_NET_WM_APPMENU_SERVICE_NAME", dbusServiceName).Run()
+		_ = exec.Command("xprop", "-id", mainWin, "-f", "_KDE_NET_WM_APPMENU_OBJECT_PATH", "8s", "-set", "_KDE_NET_WM_APPMENU_OBJECT_PATH", dbusMenuPath).Run()
+		utils.PrintSuccess(fmt.Sprintf("Global Menu attached to Spotify window: %s", mainWin))
+	}
+
+	attachedWinMu.Lock()
+	attachedWindowID = mainWin
+	attachedWinMu.Unlock()
 }
 
 func (s *GlobalMenuService) detachAllSpotifyWindows() {
-	winIDs := findSpotifyWindows()
-	for _, id := range winIDs {
-		_ = exec.Command("xprop", "-id", id, "-remove", "_KDE_NET_WM_APPMENU_SERVICE_NAME").Run()
-		_ = exec.Command("xprop", "-id", id, "-remove", "_KDE_NET_WM_APPMENU_OBJECT_PATH").Run()
+	attachedWinMu.Lock()
+	winID := attachedWindowID
+	attachedWindowID = ""
+	attachedWinMu.Unlock()
+
+	if winID != "" {
+		_ = exec.Command("xprop", "-id", winID, "-remove", "_KDE_NET_WM_APPMENU_SERVICE_NAME").Run()
+		_ = exec.Command("xprop", "-id", winID, "-remove", "_KDE_NET_WM_APPMENU_OBJECT_PATH").Run()
 	}
 }
 
-func findSpotifyWindows() []string {
-	var result []string
-
+func findMainSpotifyWindow() string {
 	// Method 1: Try xdotool search --class spotify
 	if _, err := exec.LookPath("xdotool"); err == nil {
 		out, err := exec.Command("xdotool", "search", "--class", "spotify").Output()
@@ -571,14 +606,17 @@ func findSpotifyWindows() []string {
 				if line == "" {
 					continue
 				}
-				wmName, _ := exec.Command("xprop", "-id", line, "WM_NAME").Output()
-				if strings.Contains(string(wmName), "DevTools") {
+				wmName, err := exec.Command("xprop", "-id", line, "WM_NAME").Output()
+				if err != nil {
 					continue
 				}
-				result = append(result, line)
-			}
-			if len(result) > 0 {
-				return result
+				strName := string(wmName)
+				if strings.Contains(strName, "DevTools") {
+					continue
+				}
+				if strings.Contains(strName, "Spotify") {
+					return line
+				}
 			}
 		}
 	}
@@ -601,13 +639,15 @@ func findSpotifyWindows() []string {
 					if strings.Contains(string(wmName), "DevTools") {
 						continue
 					}
-					result = append(result, idStr)
+					if strings.Contains(string(wmName), "Spotify") {
+						return idStr
+					}
 				}
 			}
 		}
 	}
 
-	return result
+	return ""
 }
 
 func handleAutostart(install bool) {

@@ -70,6 +70,12 @@ const ProviderIanz56 = (() => {
 		const ianz56Translation = [];
 		let hasTranslation = false;
 
+		// Check if the lyrics actually contain main vocal karaoke/syllable timing
+		const hasMainKaraokeWords = lines.some((line) => {
+			const isLineBg = (line.words || []).length > 0 && (line.words || []).every((w) => w.isBackground);
+			return !isLineBg && (line.words || []).some((w) => (w.text || "").trim().length > 0);
+		});
+
 		const agentsMap = new Map();
 		const rawAgents = lyricsJson.meta?.agents || lyricsJson.meta?.performers || lyricsJson.agents || [];
 		if (Array.isArray(rawAgents)) {
@@ -172,9 +178,6 @@ const ProviderIanz56 = (() => {
 			// The line should start at the earliest timestamp
 			const lineStartTime = Math.min(lineStartRaw, bgStart);
 
-			// Process main vocals
-			const mainWords = processWords(line.words || [], lineStartTime, false);
-
 			// Process background vocals
 			let backgroundWords = [];
 			let backgroundStartTime = 0;
@@ -196,17 +199,33 @@ const ProviderIanz56 = (() => {
 				lineEndTime = Math.max(lineEndTime, lastBgEnd);
 			}
 
-			karaoke.push({
-				startTime: Math.round(lineStartTime * 1000),
-				endTime: Math.round(lineEndTime * 1000),
-				backgroundStartTime: backgroundWords.length > 0 ? backgroundStartTime : undefined,
-				backgroundEndTime: backgroundWords.length > 0 ? backgroundEndTime : undefined,
-				text: mainWords,
-				isBackground: isMainBackground,
-				// Separate background vocal track
-				background: backgroundWords.length > 0 ? backgroundWords : undefined,
-				performer: performer || undefined,
-			});
+			// Only populate karaoke if the song has genuine main vocal syllable/word timings
+			if (hasMainKaraokeWords) {
+				let wordsToProcess = line.words || [];
+				if (wordsToProcess.length === 0 && line.text && line.text.trim()) {
+					wordsToProcess = [
+						{
+							text: line.text.trim(),
+							start: lineStartRaw,
+							end: lineEndRaw,
+						},
+					];
+				}
+
+				const mainWords = processWords(wordsToProcess, lineStartTime, false);
+
+				karaoke.push({
+					startTime: Math.round(lineStartTime * 1000),
+					endTime: Math.round(lineEndTime * 1000),
+					backgroundStartTime: backgroundWords.length > 0 ? backgroundStartTime : undefined,
+					backgroundEndTime: backgroundWords.length > 0 ? backgroundEndTime : undefined,
+					text: mainWords,
+					isBackground: isMainBackground,
+					// Separate background vocal track
+					background: backgroundWords.length > 0 ? backgroundWords : undefined,
+					performer: performer || undefined,
+				});
+			}
 
 			const mainTextStr = (line.text || "").trim();
 			const bgTextStr =
@@ -258,12 +277,19 @@ const ProviderIanz56 = (() => {
 		});
 
 		// Sort by start time
-		karaoke.sort((a, b) => a.startTime - b.startTime);
+		if (karaoke.length > 0) {
+			karaoke.sort((a, b) => a.startTime - b.startTime);
+		}
 		synced.sort((a, b) => a.startTime - b.startTime);
 		unsynced.sort((a, b) => a.startTime - b.startTime);
 		ianz56Translation.sort((a, b) => a.startTime - b.startTime);
 
-		return { karaoke, synced, unsynced, ianz56Translation: hasTranslation ? ianz56Translation : null };
+		return {
+			karaoke: hasMainKaraokeWords && karaoke.length > 0 ? karaoke : null,
+			synced,
+			unsynced,
+			ianz56Translation: hasTranslation ? ianz56Translation : null,
+		};
 	}
 
 	/**
@@ -287,7 +313,7 @@ const ProviderIanz56 = (() => {
 			const lyricsJson = await fetchLyricsFromDB(info.artist, info.title);
 			const { karaoke, synced, unsynced, ianz56Translation } = convertToKaraokeFormat(lyricsJson);
 
-			result.karaoke = karaoke.length > 0 ? karaoke : null;
+			result.karaoke = karaoke && karaoke.length > 0 ? karaoke : null;
 			result.synced = synced.length > 0 ? synced : null;
 			result.unsynced = unsynced.length > 0 ? unsynced : null;
 			result.ianz56Translation = ianz56Translation;

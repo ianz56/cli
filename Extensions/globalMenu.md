@@ -82,6 +82,9 @@ USAGE
     spotify-globalmenu [flags]
 
 FLAGS
+    -d, --detach               Run daemon in background (detached from terminal)
+    --stop                     Stop the running background daemon
+    --status                   Check if daemon is currently running
     --port <number>            Port for WebSocket connection (default: 23819)
     --install-autostart        Create desktop autostart entry (~/.config/autostart/)
     --uninstall-autostart      Remove desktop autostart entry

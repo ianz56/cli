@@ -271,7 +271,7 @@ func main() {
 		return
 
 	case "global-menu":
-		cmd.GlobalMenu(commands[1:])
+		cmd.GlobalMenu(append(commands[1:], flags...))
 		return
 	}
 

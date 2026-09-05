@@ -80,6 +80,8 @@ func init() {
 			}
 			if kind == "config" {
 				helpConfig()
+			} else if kind == "global-menu" {
+				cmd.GlobalMenu([]string{"--help"})
 			} else {
 				help()
 			}
@@ -267,6 +269,10 @@ func main() {
 
 		watchGroup.Wait()
 		return
+
+	case "global-menu":
+		cmd.GlobalMenu(commands[1:])
+		return
 	}
 
 	cmd.InitPaths()
@@ -397,6 +403,9 @@ watch               Enter watch mode.
 restart             Restart Spotify client.
 
 ` + utils.Bold("NON-CHAINABLE COMMANDS") + `
+global-menu         Start KDE/Linux DBus Global Menu daemon for Spotify.
+                    spicetify global-menu [--port <port>] [--install-autostart]
+
 spotify-updates     Block Spotify updates by patching spotify executable.
                     Accepts "block" or "unblock" as the parameter.
 
